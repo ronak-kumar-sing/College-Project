@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Career Constellation</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            galaxy: {
+              blue: '#4F46E5',
+              green: '#10B981',
+              pink: '#EC4899',
+              orange: '#F59E0B',
+              teal: '#059669'
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'twinkle': 'twinkle 5s ease-in-out infinite',
+            'appear': 'appear 0.5s forwards',
+          },
+          keyframes: {
+            twinkle: {
+              '0%, 100%': { opacity: 0.3 },
+              '50%': { opacity: 1 },
+            },
+            appear: {
+              'from': { transform: 'scale(0)' },
+              'to': { transform: 'scale(1)' },
+            }
+          },
+          backgroundImage: {
+            'galaxy-gradient': 'radial-gradient(circle, rgba(79, 70, 229, 0.2) 0%, #000 70%)',
+          }
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .text-gradient {
+        @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-blue-500 to-teal-400;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-black text-white min-h-screen">
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-4xl md:text-6xl font-bold text-center mb-6 text-gradient">
+      Career Constellation
+    </h1>
+    <p class="text-center text-xl mb-12 text-gray-300">
+      Explore a galaxy of career possibilities and discover your path
+    </p>
+
+    <!-- Galaxy Visualization -->
+    <div id="galaxy"
+      class="relative w-full h-[600px] bg-galaxy-gradient rounded-xl overflow-hidden border border-indigo-900/30 mb-6">
+      <!-- Background stars will be added by JavaScript -->
+
+      <!-- AI Oracle button -->
+      <button id="oracle-btn"
+        class="absolute top-4 right-4 flex items-center px-4 py-2 rounded-md bg-transparent border border-white/20 text-white hover:bg-white/10 transition-colors">
+        <svg class="w-4 h-4 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l3.293 3.293a1 1 0 0 1 0 1.414L13 11l-3.293-3.293a1 1 0 0 1 0-1.414L13 3zM19 13l3.293 3.293a1 1 0 0 1 0 1.414L19 21l-3.293-3.293a1 1 0 0 1 0-1.414L19 13z">
+          </path>
+        </svg>
+        AI Oracle
+      </button>
+
+      <!-- Back button (hidden initially) -->
+      <button id="back-btn"
+        class="absolute top-4 left-4 hidden items-center px-3 py-1.5 text-sm rounded-md bg-transparent border border-white/20 text-white hover:bg-white/10 transition-colors">
+        ← Back to Galaxy
+      </button>
+
+      <!-- Field info (hidden initially) -->
+      <div id="field-info"
+        class="absolute bottom-6 left-0 right-0 text-center opacity-0 transform translate-y-5 transition-all duration-300">
+        <h2 id="field-name" class="text-2xl font-bold text-white"></h2>
+        <p class="text-blue-300">Click on a career star to explore</p>
+      </div>
+
+      <!-- Instructions -->
+      <div id="instructions"
+        class="absolute bottom-6 left-0 right-0 text-center opacity-100 transition-opacity duration-300">
+        <h2 class="text-xl font-medium text-white">Click on a star cluster to explore career fields</h2>
+      </div>
+    </div>
+
+    <!-- AI Oracle panel (hidden initially) -->
+    <div id="oracle-panel"
+      class="bg-indigo-950/80 rounded-xl p-6 border border-purple-500/50 mb-6 max-h-0 overflow-hidden opacity-0 transition-all duration-500">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-purple-300 flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l3.293 3.293a1 1 0 0 1 0 1.414L13 11l-3.293-3.293a1 1 0 0 1 0-1.414L13 3zM19 13l3.293 3.293a1 1 0 0 1 0 1.414L19 21l-3.293-3.293a1 1 0 0 1 0-1.414L19 13z">
+            </path>
+          </svg>
+          Career Oracle
+        </h2>
+        <button id="close-oracle-btn" class="p-2 rounded-md hover:bg-white/10 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <p class="text-gray-300 mb-4">
+        Describe your interests, skills, and values to receive personalized career recommendations powered by Gemini AI
+      </p>
+
+      <div class="flex gap-2 mb-6">
+        <input id="interests-input" type="text"
+          class="flex-1 px-4 py-2 rounded-md bg-indigo-900/50 border border-purple-500/50 text-white focus:outline-none focus:border-purple-500"
+          placeholder="e.g., I enjoy solving problems, working with technology, and helping others...">
+        <button id="get-recommendations-btn"
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          Get Recommendations
+        </button>
+      </div>
+
+      <!-- API Error message (hidden initially) -->
+      <div id="api-error" class="hidden p-4 mb-6 bg-red-900/30 border border-red-500/50 rounded-lg text-red-200">
+        <p>There was an error connecting to the AI service. Please try again later.</p>
+      </div>
+
+      <!-- Recommendations will be added here by JavaScript -->
+      <div id="recommendations-container" class="hidden space-y-4">
+        <h3 class="text-xl font-medium text-purple-200">Recommended Careers</h3>
+        <div id="recommendations-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+      </div>
+    </div>
+
+    <!-- Career modal (hidden initially) -->
+    <div id="career-modal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 opacity-0 pointer-events-none transition-opacity duration-300">
+      <div
+        class="bg-gradient-to-b from-indigo-950 to-black border border-indigo-500/30 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden transform scale-90 opacity-0 transition-all duration-300">
+        <div class="flex justify-between items-center p-6 border-b border-indigo-800/30">
+          <h2 id="modal-title" class="text-2xl font-bold text-white"></h2>
+          <button id="close-modal-btn" class="p-2 rounded-md hover:bg-white/10 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+          <div class="mb-6 border-b border-indigo-800/30">
+            <div class="flex space-x-4">
+              <button data-tab="overview"
+                class="tab-btn active px-4 py-2 text-white border-b-2 border-indigo-600">Overview</button>
+              <button data-tab="trends" class="tab-btn px-4 py-2 text-gray-400 border-b-2 border-transparent">Market
+                Trends</button>
+              <button data-tab="story" class="tab-btn px-4 py-2 text-gray-400 border-b-2 border-transparent">Success
+                Story</button>
+            </div>
+          </div>
+
+          <div id="tab-overview" class="tab-content space-y-6">
+            <p id="career-description" class="text-gray-300 text-lg"></p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="bg-indigo-900/20 p-4 rounded-lg border border-indigo-700/30">
+                <div class="flex items-center mb-2">
+                  <svg class="w-5 h-5 text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                  </svg>
+                  <h3 class="text-lg font-medium text-white">Education</h3>
+                </div>
+                <p id="career-education" class="text-gray-300"></p>
+              </div>
+
+              <div class="bg-indigo-900/20 p-4 rounded-lg border border-indigo-700/30">
+                <div class="flex items-center mb-2">
+                  <svg class="w-5 h-5 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M23 6l-9.5 9.5-5-5L1 18"></path>
+                    <path d="M17 6h6v6"></path>
+                  </svg>
+                  <h3 class="text-lg font-medium text-white">Growth</h3>
+                </div>
+                <p id="career-growth" class="text-green-400 text-2xl font-bold"></p>
+                <p class="text-gray-400 text-sm">Projected 10-year growth</p>
+              </div>
+
+              <div class="bg-indigo-900/20 p-4 rounded-lg border border-indigo-700/30">
+                <div class="flex items-center mb-2">
+                  <svg class="w-5 h-5 text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                  <h3 class="text-lg font-medium text-white">Median Salary</h3>
+                </div>
+                <p id="career-salary" class="text-yellow-400 text-2xl font-bold"></p>
+                <p class="text-gray-400 text-sm">Annual median salary</p>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-lg font-medium text-white mb-3">Key Skills</h3>
+              <div id="skills-container" class="flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+
+          <div id="tab-trends" class="tab-content hidden space-y-6">
+            <div class="bg-indigo-900/20 p-6 rounded-lg border border-indigo-700/30">
+              <h3 class="text-xl font-medium text-white mb-4">Career Growth Trends</h3>
+              <div class="h-80">
+                <div id="trend-chart" class="flex justify-between items-end h-full"></div>
+                <div id="chart-years" class="flex justify-between mt-2"></div>
+              </div>
+              <div class="mt-4 text-center text-gray-400 text-sm">
+                Demand index over the past 8 years
+              </div>
+            </div>
+
+            <div class="bg-indigo-900/20 p-6 rounded-lg border border-indigo-700/30">
+              <h3 class="text-xl font-medium text-white mb-4">Future Outlook</h3>
+              <p id="outlook-text" class="text-gray-300 mb-4"></p>
+              <p class="text-gray-300">
+                Factors driving this growth include technological advancements, industry expansion,
+                and increasing demand for specialized skills in this field.
+              </p>
+            </div>
+          </div>
+
+          <div id="tab-story" class="tab-content hidden space-y-6">
+            <div class="bg-indigo-900/20 p-6 rounded-lg border border-indigo-700/30">
+              <h3 class="text-xl font-medium text-white mb-4">Success Story</h3>
+              <div class="flex items-center mb-4">
+                <div id="story-avatar"
+                  class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold mr-4">
+                </div>
+                <div>
+                  <h4 class="text-lg font-medium text-white">A Path to Success</h4>
+                  <p id="story-subtitle" class="text-gray-400"></p>
+                </div>
+              </div>
+              <p id="story-content" class="text-gray-300 leading-relaxed"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="bg-indigo-950/30 rounded-lg p-4 border border-indigo-900/50">
+      <h3 class="text-lg font-medium text-white mb-2">Career Fields</h3>
+      <div id="legend-grid" class="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <!-- Legend items will be added by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Gemini API Key
+    const GEMINI_API_KEY = "AIzaSyDnKGxx_HQ0J-i0I0Lst86-CF0RgEi9E1A";
+    const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+
+    // Career fields data
+    const careerFields = [
+      {
+        id: 1,
+        name: 'Technology',
+        color: '#4F46E5',
+        size: 1.2,
+        careers: [
+          {
+            id: 101,
+            title: 'Software Engineer',
+            description: 'Design, develop, and maintain software systems and applications.',
+            skills: ['Programming', 'Problem Solving', 'Algorithms', 'System Design'],
+            growth: 22,
+            salary: '$110,000',
+            education: 'Bachelor\'s in Computer Science or related field',
+            trends: [65, 68, 72, 78, 82, 88, 92, 95],
+            story: 'After teaching herself to code through online courses, Maria developed an app that helped local businesses during the pandemic. This side project caught the attention of a tech company, which hired her as a junior developer. Three years later, she leads a team building accessibility features that help millions of users.'
+          },
+          {
+            id: 102,
+            title: 'Data Scientist',
+            description: 'Extract insights from complex data using statistical analysis and machine learning.',
+            skills: ['Statistics', 'Machine Learning', 'Python', 'Data Visualization'],
+            growth: 36,
+            salary: '$120,000',
+            education: 'Master\'s in Data Science, Statistics, or related field',
+            trends: [60, 70, 75, 82, 88, 94, 98, 100],
+            story: 'James combined his passion for environmental science and statistics to analyze climate data. His research project at university led to an internship with a sustainability startup, where he developed predictive models for renewable energy production. Now he works with government agencies to optimize resource allocation during natural disasters.'
+          },
+          {
+            id: 103,
+            title: 'Cybersecurity Analyst',
+            description: 'Protect systems and networks from digital attacks and security breaches.',
+            skills: ['Network Security', 'Threat Analysis', 'Security Tools', 'Risk Assessment'],
+            growth: 33,
+            salary: '$105,000',
+            education: 'Bachelor\'s in Cybersecurity or Computer Science with security focus',
+            trends: [72, 76, 80, 83, 87, 90, 94, 97],
+            story: 'After a local hospital was hit by ransomware, Darius volunteered to help strengthen their security systems. This experience inspired him to pursue cybersecurity professionally. Today, he leads security operations for a healthcare network, protecting sensitive patient data and critical infrastructure.'
+          }
+        ]
+      },
+      {
+        id: 2,
+        name: 'Healthcare',
+        color: '#10B981',
+        size: 1.1,
+        careers: [
+          {
+            id: 201,
+            title: 'Nurse Practitioner',
+            description: 'Provide advanced nursing care and may prescribe medication.',
+            skills: ['Patient Care', 'Diagnostics', 'Medical Knowledge', 'Communication'],
+            growth: 45,
+            salary: '$115,000',
+            education: 'Master\'s in Nursing and certification',
+            trends: [70, 75, 80, 84, 88, 92, 96, 99],
+            story: 'After working as an ER nurse for five years, Lin pursued advanced certification to become a nurse practitioner. She now runs a mobile clinic that serves rural communities with limited healthcare access, combining her medical expertise with a passion for public health education.'
+          },
+          {
+            id: 202,
+            title: 'Physical Therapist',
+            description: 'Help patients improve movement and manage pain after injuries or surgeries.',
+            skills: ['Anatomy', 'Rehabilitation Techniques', 'Patient Assessment', 'Treatment Planning'],
+            growth: 18,
+            salary: '$92,000',
+            education: 'Doctor of Physical Therapy (DPT)',
+            trends: [65, 68, 72, 76, 80, 84, 87, 90],
+            story: 'Former athlete Carlos suffered a career-ending injury in college. The physical therapist who helped him recover inspired him to enter the field himself. Now he specializes in sports medicine, helping both professional athletes and weekend warriors recover from injuries and perform at their best.'
+          }
+        ]
+      },
+      {
+        id: 3,
+        name: 'Creative Arts',
+        color: '#EC4899',
+        size: 0.9,
+        careers: [
+          {
+            id: 301,
+            title: 'UX Designer',
+            description: 'Design user-friendly digital experiences for websites and applications.',
+            skills: ['User Research', 'Wireframing', 'Prototyping', 'Usability Testing'],
+            growth: 24,
+            salary: '$95,000',
+            education: 'Bachelor\'s in Design, HCI, or related field',
+            trends: [68, 72, 78, 83, 87, 90, 93, 95],
+            story: 'Aisha started as a graphic designer but became fascinated with how people interact with digital products. She taught herself UX principles while redesigning a community nonprofit\'s website. The dramatic improvement in user engagement led to freelance opportunities, and eventually a position at a design agency where she creates accessible interfaces for educational technology.'
+          },
+          {
+            id: 302,
+            title: 'Game Developer',
+            description: 'Create interactive games for various platforms and devices.',
+            skills: ['Game Design', 'Programming', '3D Modeling', 'Animation'],
+            growth: 28,
+            salary: '$85,000',
+            education: 'Bachelor\'s in Game Development or Computer Science',
+            trends: [75, 78, 82, 85, 88, 90, 93, 96],
+            story: 'Growing up in a small town, Raj found community through online gaming. He started modding existing games, then studied computer science while developing indie games on the side. His team\'s mobile game about climate change won an industry award, leading to a position at a studio that creates educational games for schools.'
+          }
+        ]
+      },
+      {
+        id: 4,
+        name: 'Business',
+        color: '#F59E0B',
+        size: 1.0,
+        careers: [
+          {
+            id: 401,
+            title: 'Financial Analyst',
+            description: 'Analyze financial data to guide business decisions and investment strategies.',
+            skills: ['Financial Modeling', 'Data Analysis', 'Market Research', 'Forecasting'],
+            growth: 15,
+            salary: '$87,000',
+            education: 'Bachelor\'s in Finance, Economics, or related field',
+            trends: [62, 65, 69, 72, 76, 80, 83, 85],
+            story: 'Elena\'s family struggled financially during the economic downturn, sparking her interest in understanding financial systems. After college, she joined a firm that helps small businesses secure funding. Her analysis has helped dozens of local entrepreneurs turn their ideas into sustainable businesses that create jobs in underserved communities.'
+          },
+          {
+            id: 402,
+            title: 'Marketing Manager',
+            description: 'Develop and implement marketing strategies to promote products or services.',
+            skills: ['Market Analysis', 'Campaign Management', 'Digital Marketing', 'Brand Development'],
+            growth: 20,
+            salary: '$82,000',
+            education: 'Bachelor\'s in Marketing, Business, or related field',
+            trends: [70, 73, 76, 79, 82, 85, 88, 90],
+            story: 'Marcus started a social media account showcasing local restaurants during college. As it gained followers, businesses began asking for his help with their online presence. He turned this side hustle into a career, eventually leading marketing for a sustainable food company where he combines his passion for storytelling with his commitment to environmental values.'
+          }
+        ]
+      },
+      {
+        id: 5,
+        name: 'Environmental Science',
+        color: '#059669',
+        size: 0.85,
+        careers: [
+          {
+            id: 501,
+            title: 'Renewable Energy Engineer',
+            description: 'Design and develop systems that generate energy from renewable sources.',
+            skills: ['Engineering Principles', 'Energy Systems', 'Project Management', 'Sustainability'],
+            growth: 40,
+            salary: '$95,000',
+            education: 'Bachelor\'s in Engineering with focus on renewable energy',
+            trends: [75, 80, 84, 88, 92, 95, 98, 100],
+            story: 'After witnessing the effects of pollution in her coastal hometown, Zoe became determined to work on clean energy solutions. She interned with a solar installation company while studying engineering, then joined a research team developing more efficient wind turbines. Now she consults with communities transitioning to renewable energy infrastructure.'
+          },
+          {
+            id: 502,
+            title: 'Conservation Scientist',
+            description: 'Manage and protect natural resources and ecosystems.',
+            skills: ['Environmental Science', 'Data Collection', 'Policy Analysis', 'Field Research'],
+            growth: 22,
+            salary: '$75,000',
+            education: 'Bachelor\'s or Master\'s in Environmental Science or related field',
+            trends: [65, 68, 72, 76, 80, 84, 87, 90],
+            story: 'David volunteered for forest restoration projects throughout high school. This hands-on experience led him to study ecology in college, where he researched the impact of invasive species on local watersheds. Now he works with government agencies and private landowners to develop sustainable land management practices that balance human needs with ecosystem health.'
+          }
+        ]
+      }
+    ];
+
+    // DOM elements
+    const galaxy = document.getElementById('galaxy');
+    const fieldInfo = document.getElementById('field-info');
+    const fieldName = document.getElementById('field-name');
+    const instructions = document.getElementById('instructions');
+    const backBtn = document.getElementById('back-btn');
+    const oracleBtn = document.getElementById('oracle-btn');
+    const oraclePanel = document.getElementById('oracle-panel');
+    const closeOracleBtn = document.getElementById('close-oracle-btn');
+    const interestsInput = document.getElementById('interests-input');
+    const getRecommendationsBtn = document.getElementById('get-recommendations-btn');
+    const recommendationsContainer = document.getElementById('recommendations-container');
+    const recommendationsGrid = document.getElementById('recommendations-grid');
+    const apiError = document.getElementById('api-error');
+    const careerModal = document.getElementById('career-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const careerDescription = document.getElementById('career-description');
+    const careerEducation = document.getElementById('career-education');
+    const careerGrowth = document.getElementById('career-growth');
+    const careerSalary = document.getElementById('career-salary');
+    const skillsContainer = document.getElementById('skills-container');
+    const trendChart = document.getElementById('trend-chart');
+    const chartYears = document.getElementById('chart-years');
+    const outlookText = document.getElementById('outlook-text');
+    const storyAvatar = document.getElementById('story-avatar');
+    const storySubtitle = document.getElementById('story-subtitle');
+    const storyContent = document.getElementById('story-content');
+    const legendGrid = document.getElementById('legend-grid');
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    // State
+    let selectedField = null;
+    let selectedCareer = null;
+    let fieldStars = [];
+    let careerStars = [];
+
+    // Initialize the galaxy
+    function initGalaxy() {
+      // Add background stars
+      for (let i = 0; i < 100; i++) {
+        const star = document.createElement('div');
+        star.className = 'absolute rounded-full bg-white';
+        star.style.width = `${Math.random() * 2 + 1}px`;
+        star.style.height = `${Math.random() * 2 + 1}px`;
+        star.style.left = `${Math.random() * 100}%`;
+        star.style.top = `${Math.random() * 100}%`;
+        star.style.opacity = Math.random() * 0.7 + 0.3;
+        star.style.animation = `twinkle ${Math.random() * 5 + 3}s ease-in-out infinite`;
+        galaxy.appendChild(star);
+      }
+
+      // Create field stars
+      careerFields.forEach(field => {
+        const x = 20 + Math.random() * 60; // Keep stars more centered
+        const y = 20 + Math.random() * 60;
+
+        const star = document.createElement('div');
+        star.className = 'absolute rounded-full cursor-pointer z-10 animate-appear';
+        star.dataset.fieldId = field.id;
+        star.style.left = `${x}%`;
+        star.style.top = `${y}%`;
+        star.style.width = `${field.size * 10}px`;
+        star.style.height = `${field.size * 10}px`;
+        star.style.backgroundColor = field.color;
+        star.style.boxShadow = `0 0 ${field.size * 15}px ${field.color}`;
+
+        star.addEventListener('click', () => handleFieldClick(field.id));
+
+        galaxy.appendChild(star);
+
+        fieldStars.push({
+          id: field.id,
+          element: star,
+          x,
+          y
+        });
+      });
+
+      // Initialize legend
+      initLegend();
+    }
+
+    // Initialize legend
+    function initLegend() {
+      careerFields.forEach(field => {
+        const item = document.createElement('div');
+        item.className = 'flex items-center cursor-pointer hover:bg-indigo-900/30 p-2 rounded-md transition-colors';
+        item.dataset.fieldId = field.id;
+
+        const dot = document.createElement('div');
+        dot.className = 'w-3 h-3 rounded-full mr-2';
+        dot.style.backgroundColor = field.color;
+
+        const label = document.createElement('span');
+        label.className = 'text-sm text-gray-300';
+        label.textContent = field.name;
+
+        item.appendChild(dot);
+        item.appendChild(label);
+
+        item.addEventListener('click', () => handleFieldClick(field.id));
+
+        legendGrid.appendChild(item);
+      });
+    }
+
+    // Handle field selection
+    function handleFieldClick(fieldId) {
+      if (selectedField === fieldId) {
+        // Deselect current field
+        deselectField();
+      } else {
+        // Select new field
+        selectField(fieldId);
+      }
+    }
+
+    // Select a field
+    function selectField(fieldId) {
+      selectedField = fieldId;
+
+      // Update UI
+      instructions.classList.remove('opacity-100');
+      instructions.classList.add('opacity-0');
+      fieldInfo.classList.remove('opacity-0', 'translate-y-5');
+      fieldInfo.classList.add('opacity-100', 'translate-y-0');
+      backBtn.classList.remove('hidden');
+      backBtn.classList.add('flex');
+
+      // Update field name
+      const field = careerFields.find(f => f.id === fieldId);
+      fieldName.textContent = field.name;
+
+      // Add pulse effect to selected field star
+      const fieldStar = fieldStars.find(s => s.id === fieldId);
+      fieldStar.element.classList.add('animate-pulse-slow');
+
+      // Update legend
+      updateLegend();
+
+      // Create career stars
+      createCareerStars(field);
+    }
+
+    // Deselect field
+    function deselectField() {
+      // Remove pulse effect from field star
+      const fieldStar = fieldStars.find(s => s.id === selectedField);
+      fieldStar.element.classList.remove('animate-pulse-slow');
+
+      // Remove career stars
+      removeCareerStars();
+
+      // Update UI
+      selectedField = null;
+      fieldInfo.classList.add('opacity-0', 'translate-y-5');
+      fieldInfo.classList.remove('opacity-100', 'translate-y-0');
+      instructions.classList.add('opacity-100');
+      instructions.classList.remove('opacity-0');
+      backBtn.classList.add('hidden');
+      backBtn.classList.remove('flex');
+
+      // Update legend
+      updateLegend();
+    }
+
+    // Create career stars for selected field
+    function createCareerStars(field) {
+      const fieldStar = fieldStars.find(s => s.id === field.id);
+      const centerX = fieldStar.x;
+      const centerY = fieldStar.y;
+
+      // Remove any existing career stars
+      removeCareerStars();
+
+      // Position career stars in a circle around the field star
+      field.careers.forEach((career, index) => {
+        const angle = (index / field.careers.length) * Math.PI * 2;
+        const distance = 15; // Distance from field star
+        const x = centerX + Math.cos(angle) * distance;
+        const y = centerY + Math.sin(angle) * distance;
+
+        const star = document.createElement('div');
+        star.className = 'absolute rounded-full cursor-pointer z-10 transform scale-0 opacity-0 transition-all duration-300';
+        star.dataset.careerId = career.id;
+        star.style.left = `${x}%`;
+        star.style.top = `${y}%`;
+        star.style.width = '6px';
+        star.style.height = '6px';
+        star.style.backgroundColor = field.color;
+        star.style.boxShadow = `0 0 10px ${field.color}`;
+
+        star.addEventListener('click', () => handleCareerClick(career, field.color));
+
+        galaxy.appendChild(star);
+
+        careerStars.push({
+          id: career.id,
+          element: star
+        });
+
+        // Delay to create staggered appearance
+        setTimeout(() => {
+          star.classList.add('scale-100', 'opacity-100');
+        }, index * 100);
+      });
+    }
+
+    // Remove career stars
+    function removeCareerStars() {
+      careerStars.forEach(star => {
+        star.element.remove();
+      });
+
+      careerStars = [];
+    }
+
+    // Update legend based on selection
+    function updateLegend() {
+      const legendItems = document.querySelectorAll('#legend-grid > div');
+
+      legendItems.forEach(item => {
+        const fieldId = parseInt(item.dataset.fieldId);
+        const label = item.querySelector('span');
+
+        if (fieldId === selectedField) {
+          label.classList.remove('text-gray-300');
+          label.classList.add('text-white', 'font-medium');
+        } else {
+          label.classList.add('text-gray-300');
+          label.classList.remove('text-white', 'font-medium');
+        }
+      });
+    }
+
+    // Handle career selection
+    function handleCareerClick(career, color) {
+      selectedCareer = career;
+
+      // Update modal content
+      modalTitle.textContent = career.title;
+      careerDescription.textContent = career.description;
+      careerEducation.textContent = career.education;
+      careerGrowth.textContent = `${career.growth}%`;
+      careerSalary.textContent = career.salary;
+
+      // Update skills
+      skillsContainer.innerHTML = '';
+      career.skills.forEach(skill => {
+        const badge = document.createElement('span');
+        badge.className = 'inline-block px-2 py-1 text-xs rounded-md bg-indigo-900/40 border border-indigo-700/30 text-blue-300';
+        badge.textContent = skill;
+        skillsContainer.appendChild(badge);
+      });
+
+      // Update chart
+      updateTrendChart(career.trends, color);
+
+      // Update outlook text
+      let outlookDescription = '';
+      if (career.growth > 20) {
+        outlookDescription = 'much faster than the average for all occupations.';
+      } else if (career.growth > 10) {
+        outlookDescription = 'faster than the average for all occupations.';
+      } else {
+        outlookDescription = 'similar to the average for all occupations.';
+      }
+
+      outlookText.textContent = `This career is projected to grow ${career.growth}% over the next decade, ${outlookDescription}`;
+
+      // Update story
+      storyAvatar.textContent = career.title[0];
+      storySubtitle.textContent = `Real-world journey in ${career.title}`;
+      storyContent.textContent = career.story;
+
+      // Show modal
+      careerModal.classList.add('opacity-100', 'pointer-events-auto');
+      setTimeout(() => {
+        careerModal.querySelector('.modal-content').classList.remove('scale-90', 'opacity-0');
+        careerModal.querySelector('.modal-content').classList.add('scale-100', 'opacity-100');
+      }, 50);
+
+      // Reset to overview tab
+      selectTab('overview');
+    }
+
+    // Update trend chart
+    function updateTrendChart(trends, color) {
+      // Clear existing chart
+      trendChart.innerHTML = '';
+      chartYears.innerHTML = '';
+
+      // Get current year
+      const currentYear = new Date().getFullYear();
+
+      // Create bars for each year
+      trends.forEach((value, index) => {
+        const year = currentYear - 7 + index;
+
+        // Create bar
+        const bar = document.createElement('div');
+        bar.className = 'flex-1 mx-0.5';
+
+        const barFill = document.createElement('div');
+        barFill.className = 'w-full rounded-t-sm transition-all duration-1000';
+        barFill.style.height = '0';
+        barFill.style.background = `linear-gradient(to top, ${color}20, ${color}cc)`;
+
+        bar.appendChild(barFill);
+        trendChart.appendChild(bar);
+
+        // Create year label
+        const yearLabel = document.createElement('div');
+        yearLabel.className = 'flex-1 text-center text-xs text-gray-400';
+        yearLabel.textContent = year;
+        chartYears.appendChild(yearLabel);
+
+        // Animate bar height after a small delay
+        setTimeout(() => {
+          barFill.style.height = `${value}%`;
+        }, 100 + index * 100);
+      });
+    }
+
+    // Handle tab selection
+    function selectTab(tabId) {
+      // Update tab buttons
+      tabButtons.forEach(tab => {
+        if (tab.dataset.tab === tabId) {
+          tab.classList.add('text-white', 'border-indigo-600');
+          tab.classList.remove('text-gray-400', 'border-transparent');
+        } else {
+          tab.classList.remove('text-white', 'border-indigo-600');
+          tab.classList.add('text-gray-400', 'border-transparent');
+        }
+      });
+
+      // Update tab content
+      tabContents.forEach(content => {
+        if (content.id === `tab-${tabId}`) {
+          content.classList.remove('hidden');
+        } else {
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    // Call Gemini API for career recommendations
+    async function getGeminiRecommendations(interests) {
+      try {
+        // Hide any previous error messages
+        apiError.classList.add('hidden');
+
+        const prompt = `
+          Based on the following interests, skills, and values, recommend 3 careers that would be a good fit.
+          For each career, provide:
+          1. A job title
+          2. A brief description (1-2 sentences)
+          3. 4 key skills required
+          4. Estimated growth percentage (a number between 10-45)
+          5. Approximate salary (in USD)
+          6. Required education
+
+          Format your response as a JSON array with objects containing these fields: title, description, skills (array), growth (number), salary (string), education (string).
+
+          User interests: ${interests}
+        `;
+
+        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }]
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('API request failed');
+        }
+
+        const data = await response.json();
+
+        // Extract the text response from Gemini
+        const textResponse = data.candidates[0].content.parts[0].text;
+
+        // Find the JSON part in the response
+        const jsonMatch = textResponse.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+          throw new Error('Could not parse JSON from response');
+        }
+
+        // Parse the JSON
+        const recommendedCareers = JSON.parse(jsonMatch[0]);
+
+        // Add field colors for display
+        const coloredCareers = recommendedCareers.map((career, index) => {
+          // Assign colors from our existing fields
+          const fieldColors = ['#4F46E5', '#10B981', '#EC4899'];
+          return {
+            ...career,
+            fieldColor: fieldColors[index % fieldColors.length],
+            field: 'Recommended',
+            id: 1000 + index
+          };
+        });
+
+        return coloredCareers;
+      } catch (error) {
+        console.error('Error calling Gemini API:', error);
+        apiError.classList.remove('hidden');
+        return [];
+      }
+    }
+
+    // Handle AI Oracle recommendations
+    async function handleGetRecommendations() {
+      const interests = interestsInput.value.trim();
+
+      if (!interests) return;
+
+      // Show loading state
+      getRecommendationsBtn.innerHTML = `
+        <svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+        </svg>
+        Analyzing
+      `;
+      getRecommendationsBtn.disabled = true;
+
+      // Get recommendations from Gemini API
+      const recommendations = await getGeminiRecommendations(interests);
+
+      // Display recommendations
+      displayRecommendations(recommendations);
+
+      // Reset button
+      getRecommendationsBtn.innerHTML = 'Get Recommendations';
+      getRecommendationsBtn.disabled = false;
+    }
+
+    // Display recommendations
+    function displayRecommendations(recommendations) {
+      // Clear existing recommendations
+      recommendationsGrid.innerHTML = '';
+
+      if (recommendations.length === 0) {
+        recommendationsContainer.classList.add('hidden');
+        return;
+      }
+
+      // Create recommendation cards
+      recommendations.forEach(career => {
+        const card = document.createElement('div');
+        card.className = 'bg-indigo-900/40 rounded-lg p-4 border border-purple-500/30 hover:border-purple-400/60 transition-colors cursor-pointer';
+
+        card.innerHTML = `
+          <div class="flex items-center mb-2">
+            <div class="w-3 h-3 rounded-full mr-2" style="background-color: ${career.fieldColor}"></div>
+            <span class="text-sm text-gray-400">${career.field}</span>
+          </div>
+          <h4 class="text-lg font-medium text-white mb-1">${career.title}</h4>
+          <p class="text-sm text-gray-300 mb-3 line-clamp-2">${career.description}</p>
+          <div class="flex flex-wrap gap-1 mb-2">
+            ${career.skills.slice(0, 2).map(skill =>
+          `<span class="inline-block px-2 py-0.5 text-xs rounded-md bg-purple-900/40 border border-purple-500/30 text-purple-300">${skill}</span>`
+        ).join('')}
+            ${career.skills.length > 2 ?
+            `<span class="inline-block px-2 py-0.5 text-xs rounded-md bg-purple-900/40 border border-purple-500/30 text-purple-300">+${career.skills.length - 2} more</span>` :
+            ''}
+          </div>
+          <div class="flex items-center text-sm text-green-400">
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M23 6l-9.5 9.5-5-5L1 18"></path>
+              <path d="M17 6h6v6"></path>
+            </svg>
+            ${career.growth}% growth
+          </div>
+        `;
+
+        card.addEventListener('click', () => handleCareerClick(career, career.fieldColor));
+
+        recommendationsGrid.appendChild(card);
+      });
+
+      recommendationsContainer.classList.remove('hidden');
+    }
+
+    // Toggle Oracle panel
+    function toggleOraclePanel() {
+      if (oraclePanel.classList.contains('max-h-0')) {
+        oraclePanel.classList.remove('max-h-0', 'opacity-0');
+        oraclePanel.classList.add('max-h-[2000px]', 'opacity-100');
+        oracleBtn.classList.add('bg-indigo-600', 'border-indigo-600');
+        oracleBtn.classList.remove('bg-transparent', 'border-white/20');
+      } else {
+        oraclePanel.classList.add('max-h-0', 'opacity-0');
+        oraclePanel.classList.remove('max-h-[2000px]', 'opacity-100');
+        oracleBtn.classList.remove('bg-indigo-600', 'border-indigo-600');
+        oracleBtn.classList.add('bg-transparent', 'border-white/20');
+      }
+    }
+
+    // Event listeners
+    backBtn.addEventListener('click', deselectField);
+
+    oracleBtn.addEventListener('click', toggleOraclePanel);
+
+    closeOracleBtn.addEventListener('click', () => {
+      oraclePanel.classList.add('max-h-0', 'opacity-0');
+      oraclePanel.classList.remove('max-h-[2000px]', 'opacity-100');
+      oracleBtn.classList.remove('bg-indigo-600', 'border-indigo-600');
+      oracleBtn.classList.add('bg-transparent', 'border-white/20');
+    });
+
+    getRecommendationsBtn.addEventListener('click', handleGetRecommendations);
+
+    interestsInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleGetRecommendations();
+      }
+    });
+
+    closeModalBtn.addEventListener('click', () => {
+      careerModal.querySelector('.modal-content').classList.add('scale-90', 'opacity-0');
+      careerModal.querySelector('.modal-content').classList.remove('scale-100', 'opacity-100');
+      setTimeout(() => {
+        careerModal.classList.remove('opacity-100', 'pointer-events-auto');
+      }, 300);
+    });
+
+    careerModal.addEventListener('click', (e) => {
+      if (e.target === careerModal) {
+        careerModal.querySelector('.modal-content').classList.add('scale-90', 'opacity-0');
+        careerModal.querySelector('.modal-content').classList.remove('scale-100', 'opacity-100');
+        setTimeout(() => {
+          careerModal.classList.remove('opacity-100', 'pointer-events-auto');
+        }, 300);
+      }
+    });
+
+    tabButtons.forEach(tab => {
+      tab.addEventListener('click', () => {
+        selectTab(tab.dataset.tab);
+      });
+    });
+
+    // Initialize
+    initGalaxy();
+  </script>
+</body>
+
+</html>
