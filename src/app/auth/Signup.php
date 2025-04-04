@@ -7,6 +7,40 @@
   <title>Career Compass - Student Signup</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#edfaff',
+              100: '#d6f1ff',
+              200: '#b5e8ff',
+              300: '#83daff',
+              400: '#48c2ff',
+              500: '#1ea6ff',
+              600: '#0085ff',
+              700: '#006be0',
+              800: '#0058b9',
+              900: '#064a8d',
+            },
+            secondary: {
+              50: '#effef7',
+              100: '#dafeef',
+              200: '#b8f9de',
+              300: '#82f2c7',
+              400: '#40e5a7',
+              500: '#1ad18c',
+              600: '#0ca772',
+              700: '#0d855c',
+              800: '#11694b',
+              900: '#10563f',
+            }
+          }
+        }
+      }
+    }
+  </script>
   <style>
     .career-bg {
       background-image: url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?ixlib=rb-4.0.3&auto=format&fit=crop&w=1950&q=80');
@@ -39,6 +73,10 @@
 
     .fade-in {
       animation: fadeIn 0.6s ease-out forwards;
+    }
+
+    .bg-gradient-custom {
+      background: linear-gradient(135deg, #1ea6ff 0%, #1ad18c 100%);
     }
   </style>
 </head>
@@ -83,7 +121,53 @@
         <p class="text-gray-600">Navigating your future</p>
       </div>
 
-      <form id="signupForm" action="/process-signup.php" method="POST" class="space-y-6">
+      <?php
+      // Simple PHP to handle form submission
+      if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $fullName = $_POST["fullName"] ?? "";
+        $email = $_POST["email"] ?? "";
+        $password = $_POST["password"] ?? "";
+        $confirmPassword = $_POST["confirmPassword"] ?? "";
+        $age = $_POST["age"] ?? "";
+        $grade = $_POST["grade"] ?? "";
+        $interests = $_POST["interests"] ?? [];
+        $newsletter = isset($_POST["newsletter"]) ? true : false;
+        $terms = isset($_POST["terms"]) ? true : false;
+
+        // This is where you would validate and save user data
+        // For demo purposes, we'll just show a message
+        $error = "";
+
+        if (empty($fullName) || empty($email) || empty($password) || empty($age) || empty($grade)) {
+          $error = "Please fill in all required fields.";
+        } elseif ($password !== $confirmPassword) {
+          $error = "Passwords do not match.";
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+          $error = "Please enter a valid email address.";
+        } elseif (!$terms) {
+          $error = "You must agree to the terms and conditions.";
+        } elseif (empty($interests)) {
+          $error = "Please select at least one career interest.";
+        } else {
+          // Success! In a real app, you would save to database here
+          // For demo, just show success message
+          echo '<div class="mb-6 p-4 rounded-md bg-secondary-100 text-secondary-800">
+                      <p>Registration successful! Redirecting to login page...</p>
+                    </div>';
+          // In a real app, you would redirect to login or dashboard
+          // header("Location: login.php");
+          // exit;
+        }
+
+        if (!empty($error)) {
+          echo '<div class="mb-6 p-4 rounded-md bg-red-100 text-red-800" id="phpError">
+                      <p>' . htmlspecialchars($error) . '</p>
+                    </div>';
+        }
+      }
+      ?>
+
+      <form id="signupForm" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST" class="space-y-6">
         <h2 class="text-2xl font-bold text-center mb-8 text-gray-800">Create Your Account</h2>
 
         <!-- Progress indicators -->
@@ -142,7 +226,7 @@
 
           <!-- Next Button -->
           <button type="button" id="toStepTwo"
-            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl flex justify-center items-center">
+            class="w-full bg-gradient-custom hover:opacity-90 text-white font-semibold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl flex justify-center items-center">
             <span>Next</span>
             <i class="fas fa-arrow-right ml-2"></i>
           </button>
@@ -186,7 +270,7 @@
               <span>Back</span>
             </button>
             <button type="button" id="toStepThree"
-              class="w-1/2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl flex justify-center items-center">
+              class="w-1/2 bg-gradient-custom hover:opacity-90 text-white font-semibold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl flex justify-center items-center">
               <span>Next</span>
               <i class="fas fa-arrow-right ml-2"></i>
             </button>
@@ -257,7 +341,7 @@
               <span>Back</span>
             </button>
             <button type="submit"
-              class="w-1/2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl flex justify-center items-center">
+              class="w-1/2 bg-gradient-custom hover:opacity-90 text-white font-semibold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl flex justify-center items-center">
               <span>Sign Up</span>
               <i class="fas fa-check-circle ml-2"></i>
             </button>
@@ -269,18 +353,29 @@
       </form>
 
       <div class="mt-8 text-center">
-        <p class="text-gray-600">Already have an account? <a href="Login.html"
+        <p class="text-gray-600">Already have an account? <a href="login.php"
             class="text-indigo-600 font-semibold hover:underline">Log in here</a></p>
       </div>
     </div>
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
+      // Check for PHP errors and display them in the JS error area too
+      const phpError = document.getElementById('phpError');
+      const errorDisplay = document.getElementById('errorDisplay');
+
+      if (phpError) {
+        errorDisplay.textContent = phpError.textContent.trim();
+        errorDisplay.classList.remove('hidden');
+        // Hide the PHP error since we're showing it in the JS error area
+        phpError.classList.add('hidden');
+      }
+
       // Password visibility toggle
       const togglePasswords = document.querySelectorAll('.toggle-password');
       togglePasswords.forEach(toggle => {
-        toggle.addEventListener('click', function () {
+        toggle.addEventListener('click', function() {
           const input = this.parentElement.querySelector('input');
           const icon = this.querySelector('i');
 
@@ -303,10 +398,9 @@
       const stepIndicator1 = document.getElementById('step1');
       const stepIndicator2 = document.getElementById('step2');
       const stepIndicator3 = document.getElementById('step3');
-      const errorDisplay = document.getElementById('errorDisplay');
 
       // To Step 2
-      document.getElementById('toStepTwo').addEventListener('click', function () {
+      document.getElementById('toStepTwo').addEventListener('click', function() {
         // Validate Step 1
         const fullName = document.getElementById('fullName').value;
         const email = document.getElementById('email').value;
@@ -348,7 +442,7 @@
       });
 
       // Back to Step 1
-      document.getElementById('backToStepOne').addEventListener('click', function () {
+      document.getElementById('backToStepOne').addEventListener('click', function() {
         stepOne.classList.remove('hidden');
         stepTwo.classList.add('hidden');
         stepThree.classList.add('hidden');
@@ -361,7 +455,7 @@
       });
 
       // To Step 3
-      document.getElementById('toStepThree').addEventListener('click', function () {
+      document.getElementById('toStepThree').addEventListener('click', function() {
         // Validate Step 2
         const age = document.getElementById('age').value;
         const grade = document.getElementById('grade').value;
@@ -391,7 +485,7 @@
       });
 
       // Back to Step 2
-      document.getElementById('backToStepTwo').addEventListener('click', function () {
+      document.getElementById('backToStepTwo').addEventListener('click', function() {
         stepOne.classList.add('hidden');
         stepTwo.classList.remove('hidden');
         stepThree.classList.add('hidden');
@@ -404,10 +498,8 @@
       });
 
       // Form submission
-      document.getElementById('signupForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-
-        // Validate all fields
+      document.getElementById('signupForm').addEventListener('submit', function(e) {
+        // Client-side validation before submission
         const fullName = document.getElementById('fullName').value;
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
@@ -422,35 +514,36 @@
         errorDisplay.classList.add('hidden');
 
         if (!fullName || !email || !password || !confirmPassword || !age || !grade) {
+          e.preventDefault();
           showError("Please fill in all required fields");
           return;
         }
 
         if (!isValidEmail(email)) {
+          e.preventDefault();
           showError("Please enter a valid email address");
           return;
         }
 
         if (password !== confirmPassword) {
+          e.preventDefault();
           showError("Passwords do not match");
           return;
         }
 
         if (interestCheckboxes.length === 0) {
+          e.preventDefault();
           showError("Please select at least one career interest");
           return;
         }
 
         if (!terms) {
+          e.preventDefault();
           showError("You must agree to the terms and conditions");
           return;
         }
 
-        // If all validations pass, submit the form
-        this.submit();
-
-        // Normally the form would submit here, but for demo:
-        console.log("Form submitted! Redirecting to success page...");
+        // If all validations pass, the form will submit naturally
       });
 
       // Helper functions
@@ -458,7 +551,10 @@
         errorDisplay.textContent = message;
         errorDisplay.classList.remove('hidden');
         // Scroll to error
-        errorDisplay.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        errorDisplay.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
       }
 
       function isValidEmail(email) {
