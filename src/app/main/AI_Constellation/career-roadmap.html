@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Career Roadmap & Guidance | Career Compass</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#edfaff',
+              100: '#d6f1ff',
+              200: '#b5e8ff',
+              300: '#83daff',
+              400: '#48c2ff',
+              500: '#1ea6ff',
+              600: '#0085ff',
+              700: '#006be0',
+              800: '#0058b9',
+              900: '#064a8d',
+            },
+            secondary: {
+              50: '#effef7',
+              100: '#dafeef',
+              200: '#b8f9de',
+              300: '#82f2c7',
+              400: '#40e5a7',
+              500: '#1ad18c',
+              600: '#0ca772',
+              700: '#0d855c',
+              800: '#11694b',
+              900: '#10563f',
+            },
+            accent: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              200: '#fecdd3',
+              300: '#fda4af',
+              400: '#fb7185',
+              500: '#f43f5e',
+              600: '#e11d48',
+              700: '#be123c',
+              800: '#9f1239',
+              900: '#881337',
+            },
+            neutral: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#475569',
+              700: '#334155',
+              800: '#1e293b',
+              900: '#0f172a',
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'bounce-slow': 'bounce 3s infinite',
+            'float': 'float 6s ease-in-out infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1ea6ff;
+      border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #0085ff;
+    }
+
+    /* Roadmap path styling */
+    .roadmap-path {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 4px;
+      background-color: #1ea6ff;
+      transform: translateX(-50%);
+    }
+
+    .roadmap-path::before,
+    .roadmap-path::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background-color: #1ea6ff;
+      transform: translateX(-50%);
+    }
+
+    .roadmap-path::before {
+      top: 0;
+    }
+
+    .roadmap-path::after {
+      bottom: 0;
+    }
+
+    /* Roadmap item styling */
+    .roadmap-item {
+      position: relative;
+      margin-bottom: 30px;
+      padding: 20px;
+      border-radius: 8px;
+      width: calc(50% - 30px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      transition: all 0.3s ease;
+    }
+
+    .roadmap-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .roadmap-item::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 30px;
+      height: 4px;
+      background-color: #1ea6ff;
+    }
+
+    .roadmap-item::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #1ea6ff;
+      transform: translateY(-50%);
+    }
+
+    .roadmap-item:nth-child(odd) {
+      margin-right: auto;
+      margin-left: 0;
+    }
+
+    .roadmap-item:nth-child(even) {
+      margin-left: auto;
+      margin-right: 0;
+    }
+
+    .roadmap-item:nth-child(odd)::before {
+      right: -30px;
+    }
+
+    .roadmap-item:nth-child(even)::before {
+      left: -30px;
+    }
+
+    .roadmap-item:nth-child(odd)::after {
+      right: -36px;
+    }
+
+    .roadmap-item:nth-child(even)::after {
+      left: -36px;
+    }
+
+    /* Progress bar animation */
+    @keyframes progress {
+      0% {
+        width: 0;
+      }
+
+      100% {
+        width: var(--progress-width);
+      }
+    }
+
+    .progress-bar {
+      animation: progress 1.5s ease-out forwards;
+    }
+
+    /* Skill tag animation */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .skill-tag {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    /* Toast notification */
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOutRight {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+
+    .slide-in {
+      animation: slideInRight 0.3s forwards;
+    }
+
+    .slide-out {
+      animation: slideOutRight 0.3s forwards;
+    }
+
+    /* Confetti animation */
+    @keyframes confetti-fall {
+      0% {
+        transform: translateY(-100vh) rotate(0deg);
+      }
+
+      100% {
+        transform: translateY(100vh) rotate(360deg);
+      }
+    }
+
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background-color: #1ea6ff;
+      opacity: 0.7;
+      animation: confetti-fall 5s linear infinite;
+    }
+
+    /* Gradient text */
+    .text-gradient {
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-image: linear-gradient(135deg, #1ea6ff 0%, #1ad18c 100%);
+    }
+
+    /* Background gradient */
+    .bg-gradient-custom {
+      background: linear-gradient(135deg, #1ea6ff 0%, #1ad18c 100%);
+    }
+
+    /* Dark mode transitions */
+    .dark-mode-transition {
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+
+    /* Dark mode styles */
+    .dark-mode {
+      background-color: #1a202c;
+      color: #e2e8f0;
+    }
+
+    .dark-mode .bg-white {
+      background-color: #2d3748;
+    }
+
+    .dark-mode .text-gray-600,
+    .dark-mode .text-gray-700,
+    .dark-mode .text-gray-800,
+    .dark-mode .text-gray-900 {
+      color: #cbd5e0;
+    }
+
+    .dark-mode .text-gray-500 {
+      color: #a0aec0;
+    }
+
+    .dark-mode .text-gray-400 {
+      color: #a0aec0;
+    }
+
+    .dark-mode .border-gray-300,
+    .dark-mode .border-gray-200,
+    .dark-mode .border-gray-100 {
+      border-color: #4a5568;
+    }
+
+    .dark-mode .bg-gray-50 {
+      background-color: #171923;
+    }
+
+    .dark-mode .bg-gray-100 {
+      background-color: #2d3748;
+    }
+
+    .dark-mode .bg-gray-200 {
+      background-color: #4a5568;
+    }
+
+    .dark-mode .shadow-md,
+    .dark-mode .shadow-lg {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    .dark-mode input,
+    .dark-mode select,
+    .dark-mode textarea {
+      background-color: #2d3748;
+      color: #e2e8f0;
+      border-color: #4a5568;
+    }
+
+    .dark-mode input::placeholder,
+    .dark-mode textarea::placeholder {
+      color: #a0aec0;
+    }
+
+    .dark-mode .custom-scrollbar::-webkit-scrollbar-track {
+      background: #2d3748;
+    }
+
+    .dark-mode .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #4299e1;
+    }
+
+    .dark-mode .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #3182ce;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 font-sans dark-mode-transition" id="body">
+  <!-- Toast Notifications Container -->
+  <div id="toastContainer" class="fixed top-20 right-4 z-50 space-y-4 w-80"></div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+    <div class="bg-white dark-mode-transition rounded-xl shadow-lg p-6 max-w-md w-full mx-4 text-center">
+      <div class="flex flex-col items-center">
+        <div class="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h3 class="text-xl font-bold mb-2">Generating Your Career Roadmap</h3>
+        <p class="text-gray-600 dark-mode-transition mb-4">Our AI is analyzing your profile and creating a personalized
+          career path...</p>
+        <div class="w-full bg-gray-200 dark-mode-transition rounded-full h-2 mb-2">
+          <div id="loadingProgressBar" class="bg-primary-500 h-2 rounded-full" style="width: 0%"></div>
+        </div>
+        <p id="loadingProgressText" class="text-sm text-gray-500 dark-mode-transition">Analyzing skills and interests...
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resource Library Modal -->
+  <div id="resourceLibraryModal"
+    class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+    <div
+      class="bg-white dark-mode-transition rounded-xl shadow-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold">Resource Library</h3>
+        <button id="closeResourceLibraryModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="mb-4">
+        <div class="relative">
+          <input type="text" id="resourceSearchInput" placeholder="Search resources..."
+            class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark-mode-transition">
+          <div class="absolute left-3 top-2.5 text-gray-400">
+            <i class="fas fa-search"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex space-x-2 mb-4 overflow-x-auto pb-2">
+        <button class="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium resource-filter-btn"
+          data-filter="all">All Resources</button>
+        <button
+          class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium resource-filter-btn dark-mode-transition"
+          data-filter="article">Articles</button>
+        <button
+          class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium resource-filter-btn dark-mode-transition"
+          data-filter="course">Courses</button>
+        <button
+          class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium resource-filter-btn dark-mode-transition"
+          data-filter="ebook">E-Books</button>
+        <button
+          class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium resource-filter-btn dark-mode-transition"
+          data-filter="video">Videos</button>
+        <button
+          class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium resource-filter-btn dark-mode-transition"
+          data-filter="tool">Tools</button>
+        <button
+          class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium resource-filter-btn dark-mode-transition"
+          data-filter="mentor">Mentorship</button>
+      </div>
+
+      <div class="overflow-y-auto custom-scrollbar flex-grow">
+        <div id="resourcesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Resources will be dynamically added here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Learning Module Modal -->
+  <div id="learningModuleModal"
+    class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+    <div
+      class="bg-white dark-mode-transition rounded-xl shadow-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="learningModuleTitle" class="text-xl font-bold">Module Title</h3>
+        <button id="closeLearningModuleModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="overflow-y-auto custom-scrollbar flex-grow">
+        <div id="learningModuleContent" class="space-y-4">
+          <!-- Module content will be dynamically added here -->
+        </div>
+      </div>
+
+      <div class="mt-4 pt-4 border-t border-gray-200 dark-mode-transition flex justify-between items-center">
+        <div>
+          <span class="text-sm text-gray-500 dark-mode-transition">Progress:</span>
+          <div class="w-32 h-2 bg-gray-200 dark-mode-transition rounded-full mt-1">
+            <div id="moduleProgressBar" class="bg-primary-500 h-2 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
+        <button id="markModuleCompleteBtn"
+          class="px-4 py-2 bg-gradient-custom text-white rounded-md font-medium hover:opacity-90 transition-colors">
+          Mark as Complete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="bg-white shadow-md sticky top-0 z-40 dark-mode-transition">
+    <div class="container mx-auto px-4 py-3">
+      <div class="flex justify-between items-center">
+        <!-- Logo and Navigation -->
+        <div class="flex items-center space-x-8">
+          <a href="#" class="flex items-center space-x-2">
+            <span class="text-2xl font-bold text-gradient">Career Compass</span>
+          </a>
+          <nav class="hidden md:flex space-x-6">
+            <a href="#"
+              class="text-gray-500 hover:text-primary-600 transition-colors dark-mode-transition">Dashboard</a>
+            <a href="#" class="text-gray-500 hover:text-primary-600 transition-colors dark-mode-transition">Industry
+              Radar</a>
+            <a href="#" class="text-primary-600 font-medium border-b-2 border-primary-500">Career Roadmap</a>
+            <a href="#"
+              class="text-gray-500 hover:text-primary-600 transition-colors dark-mode-transition">Resources</a>
+          </nav>
+        </div>
+
+        <!-- Search and User Menu -->
+        <div class="flex items-center space-x-4">
+          <button id="toggleDarkMode"
+            class="relative p-2 text-gray-500 hover:text-primary-600 transition-colors dark-mode-transition">
+            <i id="darkModeIcon" class="fas fa-moon text-xl"></i>
+          </button>
+
+          <button class="relative p-2 text-gray-500 hover:text-primary-600 transition-colors dark-mode-transition">
+            <i class="fas fa-bell text-xl"></i>
+            <span class="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+          </button>
+
+          <div class="relative">
+            <button id="userMenuBtn" class="flex items-center space-x-2 focus:outline-none">
+              <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Profile"
+                class="w-8 h-8 rounded-full border-2 border-primary-500">
+              <span class="hidden md:inline-block text-sm font-medium dark-mode-transition">Emma Wilson</span>
+              <i class="fas fa-chevron-down text-xs text-gray-500 dark-mode-transition"></i>
+            </button>
+
+            <!-- User dropdown menu -->
+            <div id="userDropdown"
+              class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden dark-mode-transition">
+              <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark-mode-transition">Your
+                Profile</a>
+              <a href="#"
+                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark-mode-transition">Settings</a>
+              <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark-mode-transition">Your
+                Roadmaps</a>
+              <div class="border-t border-gray-100 my-1 dark-mode-transition"></div>
+              <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark-mode-transition">Help
+                Center</a>
+              <a href="#" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark-mode-transition">Sign
+                Out</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-6">
+    <div class="flex flex-col lg:flex-row gap-6">
+      <!-- Left Sidebar - Profile and Form -->
+      <div class="lg:w-1/3 space-y-6">
+        <!-- Profile Summary -->
+        <div class="bg-white rounded-xl shadow-md p-6 dark-mode-transition">
+          <div class="flex items-center space-x-4 mb-4">
+            <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Profile"
+              class="w-16 h-16 rounded-full border-2 border-primary-500">
+            <div>
+              <h2 class="text-xl font-bold dark-mode-transition">Emma Wilson</h2>
+              <p class="text-gray-600 dark-mode-transition">Computer Science Student</p>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <h3 class="text-sm font-medium text-gray-700 mb-1 dark-mode-transition">Profile Completion</h3>
+              <div class="w-full h-2 bg-gray-200 rounded-full dark-mode-transition">
+                <div class="h-full bg-primary-500 rounded-full" style="width: 75%"></div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1 dark-mode-transition">75% complete - Add more skills to improve your
+                profile</p>
+            </div>
+
+            <div>
+              <h3 class="text-sm font-medium text-gray-700 mb-1 dark-mode-transition">Current Skills</h3>
+              <div class="flex flex-wrap gap-2" id="currentSkillsContainer">
+                <span class="px-2 py-1 bg-primary-100 rounded-full text-xs text-primary-700">JavaScript</span>
+                <span class="px-2 py-1 bg-primary-100 rounded-full text-xs text-primary-700">HTML/CSS</span>
+                <span class="px-2 py-1 bg-primary-100 rounded-full text-xs text-primary-700">React</span>
+                <span class="px-2 py-1 bg-primary-100 rounded-full text-xs text-primary-700">UI/UX Design</span>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-sm font-medium text-gray-700 mb-1 dark-mode-transition">Education</h3>
+              <p class="text-sm text-gray-600 dark-mode-transition">Bachelor of Science in Computer Science</p>
+              <p class="text-xs text-gray-500 dark-mode-transition">University of Technology, 2022-2026</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Career Roadmap Form -->
+        <div class="bg-white rounded-xl shadow-md p-6 dark-mode-transition">
+          <h2 class="text-xl font-bold mb-4 dark-mode-transition">Create Your Career Roadmap</h2>
+
+          <form id="roadmapForm" class="space-y-4">
+            <div>
+              <label for="careerGoal" class="block text-sm font-medium text-gray-700 mb-1 dark-mode-transition">Career
+                Goal</label>
+              <select id="careerGoal"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 dark-mode-transition">
+                <option value="">Select your career goal</option>
+                <option value="frontend">Frontend Developer</option>
+                <option value="backend">Backend Developer</option>
+                <option value="fullstack">Full Stack Developer</option>
+                <option value="mobile">Mobile App Developer</option>
+                <option value="data">Data Scientist</option>
+                <option value="ai">AI/ML Engineer</option>
+                <option value="devops">DevOps Engineer</option>
+                <option value="cybersecurity">Cybersecurity Specialist</option>
+                <option value="ux">UX/UI Designer</option>
+                <option value="pm">Product Manager</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="timeframe"
+                class="block text-sm font-medium text-gray-700 mb-1 dark-mode-transition">Timeframe</label>
+              <select id="timeframe"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 dark-mode-transition">
+                <option value="">Select your timeframe</option>
+                <option value="6months">6 months</option>
+                <option value="1year">1 year</option>
+                <option value="2years">2 years</option>
+                <option value="5years">5 years</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="currentSkills" class="block text-sm font-medium text-gray-700 mb-1 dark-mode-transition">Add
+                Skills</label>
+              <div class="flex">
+                <input type="text" id="currentSkills" placeholder="Add a skill (e.g., Python, Project Management)"
+                  class="flex-1 rounded-l-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 dark-mode-transition">
+                <button type="button" id="addSkillBtn"
+                  class="px-4 py-2 bg-primary-500 text-white rounded-r-md hover:bg-primary-600 transition-colors">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label for="interests" class="block text-sm font-medium text-gray-700 mb-1 dark-mode-transition">Career
+                Interests</label>
+              <textarea id="interests" rows="3" placeholder="Describe your career interests and aspirations..."
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 dark-mode-transition"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1 dark-mode-transition">Learning
+                Preferences</label>
+              <div class="space-y-2">
+                <label class="flex items-center">
+                  <input type="checkbox" class="rounded text-primary-600 mr-2" value="video">
+                  <span class="text-sm text-gray-700 dark-mode-transition">Video tutorials</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" class="rounded text-primary-600 mr-2" value="reading">
+                  <span class="text-sm text-gray-700 dark-mode-transition">Reading materials</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" class="rounded text-primary-600 mr-2" value="interactive">
+                  <span class="text-sm text-gray-700 dark-mode-transition">Interactive exercises</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" class="rounded text-primary-600 mr-2" value="mentor">
+                  <span class="text-sm text-gray-700 dark-mode-transition">Mentorship</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit"
+              class="w-full py-2 bg-gradient-custom text-white rounded-md font-medium hover:opacity-90 transition-colors">
+              Generate Career Roadmap
+            </button>
+          </form>
+        </div>
+
+        <!-- Resource Library -->
+        <div class="bg-white rounded-xl shadow-md p-6 dark-mode-transition">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold dark-mode-transition">Resource Library</h2>
+            <button id="openResourceLibraryBtn"
+              class="text-primary-600 hover:text-primary-700 transition-colors text-sm font-medium">
+              View All
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+              <div class="flex items-start">
+                <div class="flex-shrink-0 mr-3">
+                  <div class="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                    <i class="fas fa-book text-primary-600"></i>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-gray-900 dark-mode-transition">The Complete Web Developer Roadmap
+                  </h3>
+                  <p class="text-xs text-gray-500 dark-mode-transition">E-Book • 45 min read</p>
+                </div>
+              </div>
+              <button
+                class="mt-2 w-full py-1.5 text-sm text-primary-600 border border-primary-600 rounded-md hover:bg-primary-50 transition-colors dark-mode-transition">
+                Read Now
+              </button>
+            </div>
+
+            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+              <div class="flex items-start">
+                <div class="flex-shrink-0 mr-3">
+                  <div class="h-8 w-8 rounded-full bg-accent-100 flex items-center justify-center">
+                    <i class="fas fa-video text-accent-600"></i>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-gray-900 dark-mode-transition">Mastering Technical Interviews</h3>
+                  <p class="text-xs text-gray-500 dark-mode-transition">Video Course • 12 lessons</p>
+                </div>
+              </div>
+              <button
+                class="mt-2 w-full py-1.5 text-sm text-primary-600 border border-primary-600 rounded-md hover:bg-primary-50 transition-colors dark-mode-transition">
+                Watch Now
+              </button>
+            </div>
+
+            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+              <div class="flex items-start">
+                <div class="flex-shrink-0 mr-3">
+                  <div class="h-8 w-8 rounded-full bg-secondary-100 flex items-center justify-center">
+                    <i class="fas fa-laptop-code text-secondary-600"></i>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-gray-900 dark-mode-transition">Interactive JavaScript Fundamentals
+                  </h3>
+                  <p class="text-xs text-gray-500 dark-mode-transition">Interactive Course • 8 modules</p>
+                </div>
+              </div>
+              <button
+                class="mt-2 w-full py-1.5 text-sm text-primary-600 border border-primary-600 rounded-md hover:bg-primary-50 transition-colors dark-mode-transition">
+                Start Learning
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content - Roadmap and Progress -->
+      <div class="lg:w-2/3 space-y-6">
+        <!-- Roadmap Header -->
+        <div class="bg-white rounded-xl shadow-md p-6 dark-mode-transition">
+          <div class="flex flex-col md:flex-row md:justify-between md:items-center">
+            <div>
+              <h1 class="text-2xl font-bold mb-2 dark-mode-transition">Your Career Roadmap</h1>
+              <p class="text-gray-600 dark-mode-transition">A personalized path to help you achieve your career goals
+              </p>
+            </div>
+
+            <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+              <button id="saveRoadmapBtn"
+                class="px-4 py-2 border border-primary-600 text-primary-600 rounded-md font-medium hover:bg-primary-50 transition-colors dark-mode-transition">
+                <i class="fas fa-save mr-2"></i> Save Roadmap
+              </button>
+              <button id="shareRoadmapBtn"
+                class="px-4 py-2 border border-primary-600 text-primary-600 rounded-md font-medium hover:bg-primary-50 transition-colors dark-mode-transition">
+                <i class="fas fa-share-alt mr-2"></i> Share
+              </button>
+              <button id="printRoadmapBtn"
+                class="px-4 py-2 border border-primary-600 text-primary-600 rounded-md font-medium hover:bg-primary-50 transition-colors dark-mode-transition">
+                <i class="fas fa-print mr-2"></i> Print
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-6">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-medium text-gray-700 dark-mode-transition">Overall Progress</h3>
+              <span class="text-sm font-medium text-primary-600">35%</span>
+            </div>
+            <div class="w-full h-2 bg-gray-200 rounded-full dark-mode-transition">
+              <div class="h-full bg-primary-500 rounded-full progress-bar" style="--progress-width: 35%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Roadmap Visualization -->
+        <div class="bg-white rounded-xl shadow-md p-6 dark-mode-transition">
+          <h2 class="text-xl font-bold mb-6 dark-mode-transition">Full Stack Developer Roadmap</h2>
+
+          <div class="relative">
+            <!-- Roadmap Path -->
+            <div class="roadmap-path hidden md:block"></div>
+
+            <!-- Roadmap Items -->
+            <div class="space-y-6 md:space-y-0" id="roadmapContainer">
+              <!-- Roadmap items will be dynamically added here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Learning Modules -->
+        <div class="bg-white rounded-xl shadow-md p-6 dark-mode-transition">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold dark-mode-transition">Learning Modules</h2>
+            <div class="flex items-center space-x-2">
+              <span class="text-sm text-gray-500 dark-mode-transition">Filter by:</span>
+              <select id="moduleFilter"
+                class="text-sm border-none focus:ring-0 text-gray-700 font-medium dark-mode-transition">
+                <option value="all">All Modules</option>
+                <option value="inProgress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="notStarted">Not Started</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="learningModulesContainer">
+            <!-- Learning modules will be dynamically added here -->
+          </div>
+        </div>
+
+        <!-- Recommended Opportunities -->
+        <div class="bg-white rounded-xl shadow-md p-6 dark-mode-transition">
+          <h2 class="text-xl font-bold mb-4 dark-mode-transition">Recommended Opportunities</h2>
+
+          <div class="space-y-4">
+            <div class="p-4 border border-gray-200 rounded-lg dark-mode-transition hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start">
+                <div class="flex items-center space-x-3">
+                  <img src="https://logo.clearbit.com/google.com" alt="Google" class="h-10 w-10 rounded-full">
+                  <div>
+                    <h3 class="font-bold dark-mode-transition">Software Engineering Internship</h3>
+                    <div class="flex items-center text-sm text-gray-500 dark-mode-transition">
+                      <span>Google</span>
+                      <span class="mx-2">•</span>
+                      <span>Remote / San Francisco, CA</span>
+                    </div>
+                  </div>
+                </div>
+                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">98% Match</span>
+              </div>
+
+              <p class="mt-3 text-gray-600 dark-mode-transition">
+                Perfect opportunity to apply your frontend skills and learn from industry experts.
+                This internship aligns with your career roadmap's second milestone.
+              </p>
+
+              <div class="mt-3 flex justify-end">
+                <button
+                  class="px-4 py-1.5 bg-gradient-custom text-white rounded-md text-sm font-medium hover:opacity-90 transition-colors">
+                  Apply Now
+                </button>
+              </div>
+            </div>
+
+            <div class="p-4 border border-gray-200 rounded-lg dark-mode-transition hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start">
+                <div class="flex items-center space-x-3">
+                  <img src="https://logo.clearbit.com/udacity.com" alt="Udacity" class="h-10 w-10 rounded-full">
+                  <div>
+                    <h3 class="font-bold dark-mode-transition">Full Stack Web Developer Nanodegree</h3>
+                    <div class="flex items-center text-sm text-gray-500 dark-mode-transition">
+                      <span>Udacity</span>
+                      <span class="mx-2">•</span>
+                      <span>Online Course</span>
+                    </div>
+                  </div>
+                </div>
+                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">95% Match</span>
+              </div>
+
+              <p class="mt-3 text-gray-600 dark-mode-transition">
+                This program covers all the skills in your roadmap including React, Node.js, and database management.
+                Includes real-world projects and mentor feedback.
+              </p>
+
+              <div class="mt-3 flex justify-end">
+                <button
+                  class="px-4 py-1.5 bg-gradient-custom text-white rounded-md text-sm font-medium hover:opacity-90 transition-colors">
+                  Enroll Now
+                </button>
+              </div>
+            </div>
+
+            <div class="p-4 border border-gray-200 rounded-lg dark-mode-transition hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start">
+                <div class="flex items-center space-x-3">
+                  <img src="https://logo.clearbit.com/meetup.com" alt="Meetup" class="h-10 w-10 rounded-full">
+                  <div>
+                    <h3 class="font-bold dark-mode-transition">Local Web Developer Meetup</h3>
+                    <div class="flex items-center text-sm text-gray-500 dark-mode-transition">
+                      <span>Tech Enthusiasts Group</span>
+                      <span class="mx-2">•</span>
+                      <span>San Francisco, CA</span>
+                    </div>
+                  </div>
+                </div>
+                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">90% Match</span>
+              </div>
+
+              <p class="mt-3 text-gray-600 dark-mode-transition">
+                Network with local developers and potential employers. This monthly meetup features
+                talks on modern web development practices and career opportunities.
+              </p>
+
+              <div class="mt-3 flex justify-end">
+                <button
+                  class="px-4 py-1.5 bg-gradient-custom text-white rounded-md text-sm font-medium hover:opacity-90 transition-colors">
+                  RSVP
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white shadow-md mt-6 dark-mode-transition">
+    <div class="container mx-auto px-4 py-6">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <div class="mb-4 md:mb-0">
+          <span class="text-xl font-bold text-gradient">Career Compass</span>
+          <p class="text-sm text-gray-600 dark-mode-transition">Your guide to career success</p>
+        </div>
+
+        <div class="flex space-x-6">
+          <a href="#" class="text-gray-500 hover:text-primary-600 transition-colors dark-mode-transition">
+            <i class="fab fa-twitter"></i>
+          </a>
+          <a href="#" class="text-gray-500 hover:text-primary-600 transition-colors dark-mode-transition">
+            <i class="fab fa-linkedin"></i>
+          </a>
+          <a href="#" class="text-gray-500 hover:text-primary-600 transition-colors dark-mode-transition">
+            <i class="fab fa-instagram"></i>
+          </a>
+          <a href="#" class="text-gray-500 hover:text-primary-600 transition-colors dark-mode-transition">
+            <i class="fab fa-github"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-4 border-t border-gray-200 dark-mode-transition">
+        <div class="flex flex-col md:flex-row justify-between items-center">
+          <div class="flex space-x-4 mb-4 md:mb-0">
+            <a href="#"
+              class="text-sm text-gray-600 hover:text-primary-600 transition-colors dark-mode-transition">Privacy
+              Policy</a>
+            <a href="#"
+              class="text-sm text-gray-600 hover:text-primary-600 transition-colors dark-mode-transition">Terms of
+              Service</a>
+            <a href="#"
+              class="text-sm text-gray-600 hover:text-primary-600 transition-colors dark-mode-transition">Contact Us</a>
+          </div>
+
+          <p class="text-sm text-gray-600 dark-mode-transition">© 2025 Career Compass. All rights reserved.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Dark mode toggle
+      const body = document.getElementById('body');
+      const darkModeToggle = document.getElementById('toggleDarkMode');
+      const darkModeIcon = document.getElementById('darkModeIcon');
+
+      function enableDarkMode() {
+        body.classList.add('dark-mode');
+        darkModeIcon.classList.remove('fa-moon');
+        darkModeIcon.classList.add('fa-sun');
+        localStorage.setItem('darkMode', 'enabled');
+      }
+
+      function disableDarkMode() {
+        body.classList.remove('dark-mode');
+        darkModeIcon.classList.remove('fa-sun');
+        darkModeIcon.classList.add('fa-moon');
+        localStorage.setItem('darkMode', 'disabled');
+      }
+
+      darkModeToggle.addEventListener('click', function () {
+        if (body.classList.contains('dark-mode')) {
+          disableDarkMode();
+          showToast('Light mode enabled', 'info');
+        } else {
+          enableDarkMode();
+          showToast('Dark mode enabled', 'info');
+        }
+      });
+
+      // Check for saved dark mode preference or system preference
+      if (localStorage.getItem('darkMode') === 'enabled') {
+        enableDarkMode();
+      } else if (localStorage.getItem('darkMode') === 'disabled') {
+        disableDarkMode();
+      } else {
+        // Check system preference if no saved preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          enableDarkMode();
+        }
+
+        // Listen for changes in system preference
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+          if (event.matches) {
+            enableDarkMode();
+          } else {
+            disableDarkMode();
+          }
+        });
+      }
+
+      // User dropdown menu
+      const userMenuBtn = document.getElementById('userMenuBtn');
+      const userDropdown = document.getElementById('userDropdown');
+
+      userMenuBtn.addEventListener('click', function () {
+        userDropdown.classList.toggle('hidden');
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function (event) {
+        if (!userMenuBtn.contains(event.target) && !userDropdown.contains(event.target)) {
+          userDropdown.classList.add('hidden');
+        }
+      });
+
+      // Add skill functionality
+      const addSkillBtn = document.getElementById('addSkillBtn');
+      const currentSkillsInput = document.getElementById('currentSkills');
+      const currentSkillsContainer = document.getElementById('currentSkillsContainer');
+
+      addSkillBtn.addEventListener('click', function () {
+        const skill = currentSkillsInput.value.trim();
+        if (skill) {
+          const skillTag = document.createElement('span');
+          skillTag.className = 'px-2 py-1 bg-primary-100 rounded-full text-xs text-primary-700 skill-tag flex items-center';
+          skillTag.innerHTML = `${skill} <button class="ml-1 text-primary-500 hover:text-primary-700 focus:outline-none"><i class="fas fa-times"></i></button>`;
+
+          // Add remove functionality
+          const removeBtn = skillTag.querySelector('button');
+          removeBtn.addEventListener('click', function () {
+            skillTag.remove();
+          });
+
+          currentSkillsContainer.appendChild(skillTag);
+          currentSkillsInput.value = '';
+          showToast(`Skill "${skill}" added`, 'success');
+        }
+      });
+
+      currentSkillsInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addSkillBtn.click();
+        }
+      });
+
+      // Roadmap form submission
+      const roadmapForm = document.getElementById('roadmapForm');
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      const loadingProgressBar = document.getElementById('loadingProgressBar');
+      const loadingProgressText = document.getElementById('loadingProgressText');
+
+      roadmapForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        // Show loading overlay
+        loadingOverlay.classList.remove('hidden');
+
+        // Simulate loading progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+          progress += 5;
+          loadingProgressBar.style.width = `${progress}%`;
+
+          if (progress === 20) {
+            loadingProgressText.textContent = 'Analyzing career trends...';
+          } else if (progress === 40) {
+            loadingProgressText.textContent = 'Mapping skill requirements...';
+          } else if (progress === 60) {
+            loadingProgressText.textContent = 'Creating personalized roadmap...';
+          } else if (progress === 80) {
+            loadingProgressText.textContent = 'Finalizing recommendations...';
+          } else if (progress >= 100) {
+            clearInterval(progressInterval);
+            setTimeout(() => {
+              loadingOverlay.classList.add('hidden');
+              generateRoadmap();
+              showToast('Your personalized career roadmap is ready!', 'success');
+              createConfetti();
+            }, 500);
+          }
+        }, 200);
+      });
+
+      // Generate roadmap
+      function generateRoadmap() {
+        const roadmapContainer = document.getElementById('roadmapContainer');
+        const learningModulesContainer = document.getElementById('learningModulesContainer');
+
+        // Clear existing content
+        roadmapContainer.innerHTML = '';
+        learningModulesContainer.innerHTML = '';
+
+        // Sample roadmap data - in a real app, this would come from an API
+        const roadmapData = [
+          {
+            id: 1,
+            title: 'Master Frontend Fundamentals',
+            description: 'Build a strong foundation in HTML, CSS, JavaScript, and responsive design principles.',
+            timeframe: '3 months',
+            progress: 80,
+            status: 'in-progress',
+            skills: ['HTML5', 'CSS3', 'JavaScript ES6+', 'Responsive Design'],
+            resources: [
+              { type: 'course', title: 'Frontend Web Development Bootcamp', provider: 'Udemy' },
+              { type: 'book', title: 'Eloquent JavaScript', author: 'Marijn Haverbeke' }
+            ]
+          },
+          {
+            id: 2,
+            title: 'Learn Modern Frontend Frameworks',
+            description: 'Gain expertise in React.js and related technologies for building interactive UIs.',
+            timeframe: '4 months',
+            progress: 30,
+            status: 'in-progress',
+            skills: ['React.js', 'Redux', 'Tailwind CSS', 'TypeScript'],
+            resources: [
+              { type: 'course', title: 'React - The Complete Guide', provider: 'Udemy' },
+              { type: 'documentation', title: 'React Official Docs', url: 'https://reactjs.org/docs' }
+            ]
+          },
+          {
+            id: 3,
+            title: 'Backend Development Basics',
+            description: 'Learn server-side programming with Node.js and Express to build APIs and server applications.',
+            timeframe: '3 months',
+            progress: 0,
+            status: 'not-started',
+            skills: ['Node.js', 'Express.js', 'RESTful APIs', 'Authentication'],
+            resources: [
+              { type: 'course', title: 'Node.js API Masterclass', provider: 'Udemy' },
+              { type: 'tutorial', title: 'Building RESTful APIs with Node.js and Express', provider: 'MDN' }
+            ]
+          },
+          {
+            id: 4,
+            title: 'Database Management',
+            description: 'Master database design, SQL and NoSQL databases for efficient data storage and retrieval.',
+            timeframe: '2 months',
+            progress: 0,
+            status: 'not-started',
+            skills: ['MongoDB', 'PostgreSQL', 'Database Design', 'ORM/ODM'],
+            resources: [
+              { type: 'course', title: 'MongoDB - The Complete Developer\'s Guide', provider: 'Udemy' },
+              { type: 'documentation', title: 'PostgreSQL Documentation', url: 'https://www.postgresql.org/docs/' }
+            ]
+          },
+          {
+            id: 5,
+            title: 'Full Stack Project',
+            description: 'Build a complete full stack application integrating all learned technologies.',
+            timeframe: '3 months',
+            progress: 0,
+            status: 'not-started',
+            skills: ['Project Architecture', 'Deployment', 'Testing', 'CI/CD'],
+            resources: [
+              { type: 'course', title: 'MERN Stack Front To Back', provider: 'Udemy' },
+              { type: 'tutorial', title: 'Deploying Node.js Apps on Heroku', provider: 'Heroku Docs' }
+            ]
+          },
+          {
+            id: 6,
+            title: 'Advanced Topics & Specialization',
+            description: 'Deepen your expertise with advanced topics and specialize in areas of interest.',
+            timeframe: '6 months',
+            progress: 0,
+            status: 'not-started',
+            skills: ['GraphQL', 'Next.js', 'Performance Optimization', 'Microservices'],
+            resources: [
+              { type: 'course', title: 'Advanced React Patterns', provider: 'Frontend Masters' },
+              { type: 'book', title: 'Designing Data-Intensive Applications', author: 'Martin Kleppmann' }
+            ]
+          }
+        ];
+
+        // Create roadmap items
+        roadmapData.forEach((item, index) => {
+          const roadmapItem = document.createElement('div');
+          roadmapItem.className = `roadmap-item bg-white dark-mode-transition ${index % 2 === 0 ? 'md:mr-auto md:ml-0' : 'md:ml-auto md:mr-0'} w-full md:w-[calc(50%-30px)]`;
+
+          // Add status indicator color
+          let statusColor;
+          if (item.status === 'completed') {
+            statusColor = 'bg-green-500';
+          } else if (item.status === 'in-progress') {
+            statusColor = 'bg-primary-500';
+          } else {
+            statusColor = 'bg-gray-300';
+          }
+
+          roadmapItem.innerHTML = `
+            <div class="absolute -top-2 right-2 h-4 w-4 rounded-full ${statusColor}"></div>
+            <h3 class="text-lg font-bold mb-2 dark-mode-transition">${item.title}</h3>
+            <p class="text-gray-600 text-sm mb-3 dark-mode-transition">${item.description}</p>
+
+            <div class="flex justify-between items-center text-xs text-gray-500 mb-2 dark-mode-transition">
+              <span><i class="far fa-clock mr-1"></i> ${item.timeframe}</span>
+              <span>${item.progress}% Complete</span>
+            </div>
+
+            <div class="w-full h-1.5 bg-gray-200 rounded-full mb-3 dark-mode-transition">
+              <div class="h-full bg-primary-500 rounded-full" style="width: ${item.progress}%"></div>
+            </div>
+
+            <div class="flex flex-wrap gap-1 mb-3">
+              ${item.skills.map(skill => `<span class="px-2 py-0.5 bg-primary-100 rounded-full text-xs text-primary-700">${skill}</span>`).join('')}
+            </div>
+
+            <div class="flex justify-between items-center">
+              <button class="text-xs text-primary-600 hover:text-primary-700 transition-colors view-resources-btn" data-id="${item.id}">
+                <i class="fas fa-book mr-1"></i> Resources
+              </button>
+
+              <button class="text-xs text-primary-600 hover:text-primary-700 transition-colors view-modules-btn" data-id="${item.id}">
+                <i class="fas fa-graduation-cap mr-1"></i> Learning Modules
+              </button>
+            </div>
+          `;
+
+          roadmapContainer.appendChild(roadmapItem);
+        });
+
+        // Create learning modules
+        const learningModules = [
+          {
+            id: 1,
+            title: 'HTML5 Semantic Elements',
+            description: 'Learn how to structure your web pages with semantic HTML elements for better accessibility and SEO.',
+            duration: '45 minutes',
+            type: 'video',
+            progress: 100,
+            status: 'completed',
+            relatedTo: 1
+          },
+          {
+            id: 2,
+            title: 'CSS Flexbox & Grid Mastery',
+            description: 'Master modern CSS layout techniques with Flexbox and Grid to create responsive designs.',
+            duration: '1.5 hours',
+            type: 'interactive',
+            progress: 75,
+            status: 'in-progress',
+            relatedTo: 1
+          },
+          {
+            id: 3,
+            title: 'JavaScript ES6+ Features',
+            description: 'Explore modern JavaScript features like arrow functions, destructuring, and modules.',
+            duration: '2 hours',
+            type: 'video',
+            progress: 60,
+            status: 'in-progress',
+            relatedTo: 1
+          },
+          {
+            id: 4,
+            title: 'React Fundamentals',
+            description: 'Learn the core concepts of React including components, props, state, and hooks.',
+            duration: '3 hours',
+            type: 'interactive',
+            progress: 40,
+            status: 'in-progress',
+            relatedTo: 2
+          },
+          {
+            id: 5,
+            title: 'State Management with Redux',
+            description: 'Understand how to manage application state with Redux and React-Redux.',
+            duration: '2.5 hours',
+            type: 'video',
+            progress: 0,
+            status: 'not-started',
+            relatedTo: 2
+          },
+          {
+            id: 6,
+            title: 'TypeScript for React Developers',
+            description: 'Learn how to use TypeScript with React to create type-safe applications.',
+            duration: '2 hours',
+            type: 'interactive',
+            progress: 0,
+            status: 'not-started',
+            relatedTo: 2
+          }
+        ];
+
+        // Filter modules based on the selected filter
+        const moduleFilter = document.getElementById('moduleFilter');
+
+        function filterModules() {
+          const filterValue = moduleFilter.value;
+          learningModulesContainer.innerHTML = '';
+
+          const filteredModules = filterValue === 'all'
+            ? learningModules
+            : learningModules.filter(module => {
+              if (filterValue === 'inProgress') return module.status === 'in-progress';
+              if (filterValue === 'completed') return module.status === 'completed';
+              if (filterValue === 'notStarted') return module.status === 'not-started';
+              return true;
+            });
+
+          if (filteredModules.length === 0) {
+            learningModulesContainer.innerHTML = `
+              <div class="col-span-2 text-center py-8">
+                <p class="text-gray-500 dark-mode-transition">No modules match the selected filter.</p>
+              </div>
+            `;
+            return;
+          }
+
+          filteredModules.forEach(module => {
+            const moduleCard = document.createElement('div');
+            moduleCard.className = 'p-4 border border-gray-200 rounded-lg dark-mode-transition hover:shadow-md transition-shadow';
+
+            // Set status color
+            let statusColor, statusText;
+            if (module.status === 'completed') {
+              statusColor = 'bg-green-100 text-green-800';
+              statusText = 'Completed';
+            } else if (module.status === 'in-progress') {
+              statusColor = 'bg-primary-100 text-primary-800';
+              statusText = 'In Progress';
+            } else {
+              statusColor = 'bg-gray-100 text-gray-800';
+              statusText = 'Not Started';
+            }
+
+            // Set type icon
+            let typeIcon;
+            if (module.type === 'video') {
+              typeIcon = 'fa-video';
+            } else if (module.type === 'interactive') {
+              typeIcon = 'fa-laptop-code';
+            } else if (module.type === 'reading') {
+              typeIcon = 'fa-book';
+            } else {
+              typeIcon = 'fa-file-alt';
+            }
+
+            moduleCard.innerHTML = `
+              <div class="flex justify-between items-start">
+                <div class="flex items-start space-x-3">
+                  <div class="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                    <i class="fas ${typeIcon} text-primary-600"></i>
+                  </div>
+                  <div>
+                    <h3 class="font-bold dark-mode-transition">${module.title}</h3>
+                    <p class="text-sm text-gray-600 dark-mode-transition mt-1">${module.description}</p>
+                  </div>
+                </div>
+                <span class="px-2 py-1 ${statusColor} text-xs rounded-full">${statusText}</span>
+              </div>
+
+              <div class="mt-3">
+                <div class="flex justify-between items-center text-xs text-gray-500 mb-1 dark-mode-transition">
+                  <span><i class="far fa-clock mr-1"></i> ${module.duration}</span>
+                  <span>${module.progress}% Complete</span>
+                </div>
+                <div class="w-full h-1.5 bg-gray-200 rounded-full dark-mode-transition">
+                  <div class="h-full bg-primary-500 rounded-full" style="width: ${module.progress}%"></div>
+                </div>
+              </div>
+
+              <div class="mt-3 flex justify-end">
+                <button class="px-3 py-1.5 bg-gradient-custom text-white rounded-md text-sm font-medium hover:opacity-90 transition-colors open-module-btn" data-id="${module.id}">
+                  ${module.status === 'completed' ? 'Review Module' : module.status === 'in-progress' ? 'Continue' : 'Start Learning'}
+                </button>
+              </div>
+            `;
+
+            learningModulesContainer.appendChild(moduleCard);
+          });
+
+          // Add event listeners to module buttons
+          document.querySelectorAll('.open-module-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+              const moduleId = parseInt(this.getAttribute('data-id'));
+              openLearningModule(moduleId);
+            });
+          });
+        }
+
+        // Initial filter
+        filterModules();
+
+        // Add event listener to filter
+        moduleFilter.addEventListener('change', filterModules);
+
+        // Add event listeners to roadmap buttons
+        document.querySelectorAll('.view-resources-btn').forEach(btn => {
+          btn.addEventListener('click', function () {
+            const roadmapId = parseInt(this.getAttribute('data-id'));
+            openResourceLibrary(roadmapId);
+          });
+        });
+
+        document.querySelectorAll('.view-modules-btn').forEach(btn => {
+          btn.addEventListener('click', function () {
+            const roadmapId = parseInt(this.getAttribute('data-id'));
+            // Filter modules by roadmap ID
+            moduleFilter.value = 'all';
+            filterModules();
+            // Scroll to modules section
+            document.querySelector('#learningModulesContainer').scrollIntoView({ behavior: 'smooth' });
+            // Highlight modules related to this roadmap item
+            highlightRelatedModules(roadmapId);
+          });
+        });
+      }
+
+      // Highlight related modules
+      function highlightRelatedModules(roadmapId) {
+        const moduleCards = document.querySelectorAll('#learningModulesContainer > div');
+        moduleCards.forEach(card => {
+          card.classList.remove('ring-2', 'ring-primary-500');
+
+          const moduleBtn = card.querySelector('.open-module-btn');
+          if (moduleBtn) {
+            const moduleId = parseInt(moduleBtn.getAttribute('data-id'));
+            // In a real app, you would check if the module is related to the roadmap item
+            // For demo purposes, we'll use a simple mapping
+            const relatedModules = {
+              1: [1, 2, 3],
+              2: [4, 5, 6]
+            };
+
+            if (relatedModules[roadmapId] && relatedModules[roadmapId].includes(moduleId)) {
+              card.classList.add('ring-2', 'ring-primary-500');
+              card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }
+        });
+      }
+
+      // Open resource library
+      function openResourceLibrary(roadmapId) {
+        const resourceLibraryModal = document.getElementById('resourceLibraryModal');
+        const resourcesContainer = document.getElementById('resourcesContainer');
+        resourceLibraryModal.classList.remove('hidden');
+
+        // Sample resources data - in a real app, this would come from an API
+        const resources = [
+          {
+            id: 1,
+            title: 'The Complete Web Developer Roadmap',
+            description: 'A comprehensive guide to becoming a full stack web developer.',
+            type: 'ebook',
+            provider: 'FreeCodeCamp',
+            duration: '45 min read',
+            difficulty: 'Beginner',
+            tags: ['web development', 'career', 'roadmap'],
+            relatedTo: [1, 2, 3, 4, 5, 6]
+          },
+          {
+            id: 2,
+            title: 'HTML & CSS Crash Course',
+            description: 'Learn the fundamentals of HTML and CSS in this crash course.',
+            type: 'video',
+            provider: 'Traversy Media',
+            duration: '1.5 hours',
+            difficulty: 'Beginner',
+            tags: ['html', 'css', 'web development'],
+            relatedTo: [1]
+          },
+          {
+            id: 3,
+            title: 'JavaScript: Understanding the Weird Parts',
+            description: 'Deep dive into JavaScript concepts and how the language works under the hood.',
+            type: 'course',
+            provider: 'Udemy',
+            duration: '11.5 hours',
+            difficulty: 'Intermediate',
+            tags: ['javascript', 'programming', 'web development'],
+            relatedTo: [1, 2]
+          },
+          {
+            id: 4,
+            title: 'React - The Complete Guide',
+            description: 'Master React, Hooks, Redux, React Router, and more with hands-on projects.',
+            type: 'course',
+            provider: 'Udemy',
+            duration: '40 hours',
+            difficulty: 'Intermediate',
+            tags: ['react', 'javascript', 'frontend'],
+            relatedTo: [2]
+          },
+          {
+            id: 5,
+            title: 'Node.js API Masterclass',
+            description: 'Build an extensive API with Node.js, Express, MongoDB, and more.',
+            type: 'course',
+            provider: 'Udemy',
+            duration: '12 hours',
+            difficulty: 'Intermediate',
+            tags: ['node.js', 'express', 'api', 'backend'],
+            relatedTo: [3]
+          },
+          {
+            id: 6,
+            title: 'MongoDB - The Complete Developer\'s Guide',
+            description: 'Master MongoDB development for Node.js & JavaScript applications.',
+            type: 'course',
+            provider: 'Udemy',
+            duration: '16 hours',
+            difficulty: 'Intermediate',
+            tags: ['mongodb', 'database', 'backend'],
+            relatedTo: [4]
+          },
+          {
+            id: 7,
+            title: 'Eloquent JavaScript',
+            description: 'A modern introduction to programming with JavaScript.',
+            type: 'ebook',
+            provider: 'Marijn Haverbeke',
+            duration: '10 hours read',
+            difficulty: 'Intermediate',
+            tags: ['javascript', 'programming', 'book'],
+            relatedTo: [1, 2]
+          },
+          {
+            id: 8,
+            title: 'Full Stack Open',
+            description: 'Deep dive into modern web development with React, Redux, Node.js, MongoDB, GraphQL and TypeScript.',
+            type: 'course',
+            provider: 'University of Helsinki',
+            duration: '100+ hours',
+            difficulty: 'Advanced',
+            tags: ['full stack', 'react', 'node.js', 'mongodb'],
+            relatedTo: [2, 3, 4, 5]
+          },
+          {
+            id: 9,
+            title: 'Tech Interview Handbook',
+            description: 'Curated coding interview preparation materials for busy software engineers.',
+            type: 'tool',
+            provider: 'GitHub',
+            duration: 'N/A',
+            difficulty: 'Intermediate',
+            tags: ['interview', 'career', 'algorithms'],
+            relatedTo: [6]
+          },
+          {
+            id: 10,
+            title: 'Find a Tech Mentor',
+            description: 'Connect with experienced developers who can guide your career journey.',
+            type: 'mentor',
+            provider: 'MentorCruise',
+            duration: 'Ongoing',
+            difficulty: 'All Levels',
+            tags: ['mentorship', 'career', 'guidance'],
+            relatedTo: [1, 2, 3, 4, 5, 6]
+          }
+        ];
+
+        // Filter resources by roadmap ID if provided
+        const filteredResources = roadmapId
+          ? resources.filter(resource => resource.relatedTo.includes(roadmapId))
+          : resources;
+
+        // Clear existing content
+        resourcesContainer.innerHTML = '';
+
+        // Create resource cards
+        filteredResources.forEach(resource => {
+          const resourceCard = document.createElement('div');
+          resourceCard.className = 'p-4 border border-gray-200 rounded-lg dark-mode-transition hover:shadow-md transition-shadow';
+
+          // Set type icon and color
+          let typeIcon, typeColor;
+          switch (resource.type) {
+            case 'video':
+              typeIcon = 'fa-video';
+              typeColor = 'text-accent-600 bg-accent-100';
+              break;
+            case 'course':
+              typeIcon = 'fa-graduation-cap';
+              typeColor = 'text-primary-600 bg-primary-100';
+              break;
+            case 'ebook':
+              typeIcon = 'fa-book';
+              typeColor = 'text-secondary-600 bg-secondary-100';
+              break;
+            case 'tool':
+              typeIcon = 'fa-tools';
+              typeColor = 'text-purple-600 bg-purple-100';
+              break;
+            case 'mentor':
+              typeIcon = 'fa-user-friends';
+              typeColor = 'text-yellow-600 bg-yellow-100';
+              break;
+            default:
+              typeIcon = 'fa-file-alt';
+              typeColor = 'text-gray-600 bg-gray-100';
+          }
+
+          resourceCard.innerHTML = `
+            <div class="flex justify-between items-start">
+              <div class="flex items-start space-x-3">
+                <div class="h-8 w-8 rounded-full ${typeColor} flex items-center justify-center">
+                  <i class="fas ${typeIcon}"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold dark-mode-transition">${resource.title}</h3>
+                  <p class="text-sm text-gray-600 dark-mode-transition mt-1">${resource.description}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span class="px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-600 dark-mode-transition">
+                <i class="fas fa-tag mr-1"></i> ${resource.type}
+              </span>
+              <span class="px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-600 dark-mode-transition">
+                <i class="fas fa-building mr-1"></i> ${resource.provider}
+              </span>
+              ${resource.duration ? `
+                <span class="px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-600 dark-mode-transition">
+                  <i class="far fa-clock mr-1"></i> ${resource.duration}
+                </span>
+              ` : ''}
+              <span class="px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-600 dark-mode-transition">
+                <i class="fas fa-signal mr-1"></i> ${resource.difficulty}
+              </span>
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-1">
+              ${resource.tags.map(tag => `
+                <span class="px-2 py-0.5 bg-primary-100 rounded-full text-xs text-primary-700">#${tag}</span>
+              `).join('')}
+            </div>
+
+            <div class="mt-3 flex justify-end">
+              <button class="px-3 py-1.5 bg-gradient-custom text-white rounded-md text-sm font-medium hover:opacity-90 transition-colors">
+                ${resource.type === 'course' ? 'Enroll Now' :
+              resource.type === 'video' ? 'Watch Now' :
+                resource.type === 'ebook' ? 'Read Now' :
+                  resource.type === 'tool' ? 'Use Tool' :
+                    resource.type === 'mentor' ? 'Connect' : 'Access Resource'}
+              </button>
+            </div>
+          `;
+
+          resourcesContainer.appendChild(resourceCard);
+        });
+      }
+
+      // Close resource library modal
+      document.getElementById('closeResourceLibraryModal').addEventListener('click', function () {
+        document.getElementById('resourceLibraryModal').classList.add('hidden');
+      });
+
+      // Open resource library button
+      document.getElementById('openResourceLibraryBtn').addEventListener('click', function () {
+        openResourceLibrary();
+      });
+
+      // Resource filter buttons
+      document.querySelectorAll('.resource-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+          // Update active state
+          document.querySelectorAll('.resource-filter-btn').forEach(b => {
+            b.classList.remove('bg-primary-100', 'text-primary-700');
+            b.classList.add('bg-gray-100', 'text-gray-600');
+          });
+          this.classList.remove('bg-gray-100', 'text-gray-600');
+          this.classList.add('bg-primary-100', 'text-primary-700');
+
+          // Filter resources
+          const filterValue = this.getAttribute('data-filter');
+          const resourceCards = document.querySelectorAll('#resourcesContainer > div');
+
+          resourceCards.forEach(card => {
+            const typeSpan = card.querySelector('.bg-gray-100:first-child');
+            if (typeSpan) {
+              const type = typeSpan.textContent.trim().toLowerCase().replace(/[^a-z]/g, '');
+
+              if (filterValue === 'all' || type === filterValue) {
+                card.classList.remove('hidden');
+              } else {
+                card.classList.add('hidden');
+              }
+            }
+          });
+        });
+      });
+
+      // Resource search functionality
+      document.getElementById('resourceSearchInput').addEventListener('input', function () {
+        const searchValue = this.value.toLowerCase();
+        const resourceCards = document.querySelectorAll('#resourcesContainer > div');
+
+        resourceCards.forEach(card => {
+          const title = card.querySelector('h3').textContent.toLowerCase();
+          const description = card.querySelector('p').textContent.toLowerCase();
+          const tags = Array.from(card.querySelectorAll('.bg-primary-100')).map(tag => tag.textContent.toLowerCase());
+
+          if (title.includes(searchValue) || description.includes(searchValue) || tags.some(tag => tag.includes(searchValue))) {
+            card.classList.remove('hidden');
+          } else {
+            card.classList.add('hidden');
+          }
+        });
+      });
+
+      // Open learning module
+      function openLearningModule(moduleId) {
+        const learningModuleModal = document.getElementById('learningModuleModal');
+        const learningModuleTitle = document.getElementById('learningModuleTitle');
+        const learningModuleContent = document.getElementById('learningModuleContent');
+        const moduleProgressBar = document.getElementById('moduleProgressBar');
+
+        learningModuleModal.classList.remove('hidden');
+
+        // Sample module data - in a real app, this would come from an API
+        const modules = {
+          1: {
+            title: 'HTML5 Semantic Elements',
+            content: `
+              <div class="space-y-4">
+                <div class="aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden">
+                  <img src="https://via.placeholder.com/1280x720.png?text=HTML5+Semantic+Elements+Video" alt="Video thumbnail" class="w-full h-full object-cover">
+                  <div class="absolute inset-0 flex items-center justify-center">
+                    <button class="h-16 w-16 rounded-full bg-white bg-opacity-75 flex items-center justify-center hover:bg-opacity-100 transition-all">
+                      <i class="fas fa-play text-primary-600 text-2xl"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <h3 class="text-lg font-bold dark-mode-transition">Introduction to Semantic HTML</h3>
+                <p class="text-gray-600 dark-mode-transition">
+                  Semantic HTML introduces meaning to the web page rather than just presentation. Examples of semantic elements include &lt;form&gt;, &lt;table&gt;, and &lt;article&gt; - these clearly define their content.
+                </p>
+
+                <h4 class="text-md font-bold dark-mode-transition">Benefits of Semantic HTML</h4>
+                <ul class="list-disc pl-5 text-gray-600 dark-mode-transition">
+                  <li>Improved accessibility for screen readers and assistive technologies</li>
+                  <li>Better SEO as search engines understand the content structure</li>
+                  <li>Easier code maintenance with clearer structure</li>
+                  <li>More consistent code across development teams</li>
+                </ul>
+
+                <h4 class="text-md font-bold dark-mode-transition">Key Semantic Elements</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                    <h5 class="font-bold text-sm dark-mode-transition">&lt;header&gt;</h5>
+                    <p class="text-sm text-gray-600 dark-mode-transition">Represents introductory content, typically a group of introductory or navigational aids.</p>
+                  </div>
+                  <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                    <h5 class="font-bold text-sm dark-mode-transition">&lt;nav&gt;</h5>
+                    <p class="text-sm text-gray-600 dark-mode-transition">Represents a section of a page whose purpose is to provide navigation links.</p>
+                  </div>
+                  <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                    <h5 class="font-bold text-sm dark-mode-transition">&lt;main&gt;</h5>
+                    <p class="text-sm text-gray-600 dark-mode-transition">Represents the dominant content of the body of a document.</p>
+                  </div>
+                  <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                    <h5 class="font-bold text-sm dark-mode-transition">&lt;article&gt;</h5>
+                    <p class="text-sm text-gray-600 dark-mode-transition">Represents a self-contained composition in a document, page, application, or site.</p>
+                  </div>
+                  <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                    <h5 class="font-bold text-sm dark-mode-transition">&lt;section&gt;</h5>
+                    <p class="text-sm text-gray-600 dark-mode-transition">Represents a standalone section of functionality or content.</p>
+                  </div>
+                  <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                    <h5 class="font-bold text-sm dark-mode-transition">&lt;footer&gt;</h5>
+                    <p class="text-sm text-gray-600 dark-mode-transition">Represents a footer for its nearest sectioning content or sectioning root element.</p>
+                  </div>
+                </div>
+
+                <h4 class="text-md font-bold dark-mode-transition">Practice Exercise</h4>
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                  <p class="text-sm text-gray-600 dark-mode-transition mb-3">
+                    Convert this non-semantic HTML to semantic HTML:
+                  </p>
+                  <div class="bg-gray-800 text-gray-200 p-3 rounded-lg text-sm font-mono overflow-x-auto">
+                    &lt;div class="header"&gt;<br>
+                    &nbsp;&nbsp;&lt;div class="logo"&gt;My Website&lt;/div&gt;<br>
+                    &nbsp;&nbsp;&lt;div class="nav"&gt;...(navigation links)...&lt;/div&gt;<br>
+                    &lt;/div&gt;<br>
+                    &lt;div class="main-content"&gt;<br>
+                    &nbsp;&nbsp;&lt;div class="article"&gt;...(article content)...&lt;/div&gt;<br>
+                    &nbsp;&nbsp;&lt;div class="sidebar"&gt;...(sidebar content)...&lt;/div&gt;<br>
+                    &lt;/div&gt;<br>
+                    &lt;div class="footer"&gt;...(footer content)...&lt;/div&gt;
+                  </div>
+                  <button class="mt-3 px-3 py-1.5 bg-primary-500 text-white rounded-md text-sm font-medium hover:bg-primary-600 transition-colors">
+                    Show Solution
+                  </button>
+                </div>
+
+                <h4 class="text-md font-bold dark-mode-transition">Additional Resources</h4>
+                <div class="space-y-2">
+                  <a href="#" class="flex items-center text-primary-600 hover:text-primary-700 transition-colors">
+                    <i class="fas fa-external-link-alt mr-2"></i>
+                    <span>MDN Web Docs: HTML elements reference</span>
+                  </a>
+                  <a href="#" class="flex items-center text-primary-600 hover:text-primary-700 transition-colors">
+                    <i class="fas fa-external-link-alt mr-2"></i>
+                    <span>W3C: HTML5 Semantic Elements</span>
+                  </a>
+                  <a href="#" class="flex items-center text-primary-600 hover:text-primary-700 transition-colors">
+                    <i class="fas fa-file-pdf mr-2"></i>
+                    <span>Semantic HTML Cheat Sheet (PDF)</span>
+                  </a>
+                </div>
+              </div>
+            `,
+            progress: 100
+          },
+          4: {
+            title: 'React Fundamentals',
+            content: `
+              <div class="space-y-4">
+                <div class="aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden">
+                  <img src="https://via.placeholder.com/1280x720.png?text=React+Fundamentals+Video" alt="Video thumbnail" class="w-full h-full object-cover">
+                  <div class="absolute inset-0 flex items-center justify-center">
+                    <button class="h-16 w-16 rounded-full bg-white bg-opacity-75 flex items-center justify-center hover:bg-opacity-100 transition-all">
+                      <i class="fas fa-play text-primary-600 text-2xl"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <h3 class="text-lg font-bold dark-mode-transition">Introduction to React</h3>
+                <p class="text-gray-600 dark-mode-transition">
+                  React is a JavaScript library for building user interfaces, particularly single-page applications. It's used for handling the view layer in web and mobile apps. React allows you to design simple views for each state in your application, and will efficiently update and render the right components when your data changes.
+                </p>
+
+                <h4 class="text-md font-bold dark-mode-transition">Core React Concepts</h4>
+                <div class="space-y-3">
+                  <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                    <h5 class="font-bold text-sm dark-mode-transition">Components</h5>
+                    <p class="text-sm text-gray-600 dark-mode-transition">
+                      Components are the building blocks of React applications. A component is a self-contained module that renders some output. Components can be functional or class-based.
+                    </p>
+                    <div class="mt-2 bg-gray-800 text-gray-200 p-3 rounded-lg text-sm font-mono overflow-x-auto">
+                      // Functional Component<br>
+                      function Welcome(props) {<br>
+                      &nbsp;&nbsp;return &lt;h1&gt;Hello, {props.name}&lt;/h1&gt;;<br>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                    <h5 class="font-bold text-sm dark-mode-transition">Props</h5>
+                    <p class="text-sm text-gray-600 dark-mode-transition">
+                      Props (short for properties) are read-only components that are passed from a parent component to a child component. They are immutable and help make your components reusable.
+                    </p>
+                    <div class="mt-2 bg-gray-800 text-gray-200 p-3 rounded-lg text-sm font-mono overflow-x-auto">
+                      // Parent Component<br>
+                      function App() {<br>
+                      &nbsp;&nbsp;return &lt;Welcome name="Sara" /&gt;;<br>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                    <h5 class="font-bold text-sm dark-mode-transition">State</h5>
+                    <p class="text-sm text-gray-600 dark-mode-transition">
+                      State is a built-in React object that is used to contain data or information about the component. A component's state can change over time; whenever it changes, the component re-renders.
+                    </p>
+                    <div class="mt-2 bg-gray-800 text-gray-200 p-3 rounded-lg text-sm font-mono overflow-x-auto">
+                      // Using State with Hooks<br>
+                      function Counter() {<br>
+                      &nbsp;&nbsp;const [count, setCount] = useState(0);<br>
+                      &nbsp;&nbsp;return (<br>
+                      &nbsp;&nbsp;&nbsp;&nbsp;&lt;div&gt;<br>
+                      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;p&gt;You clicked {count} times&lt;/p&gt;<br>
+                      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;button onClick={() =&gt; setCount(count + 1)}&gt;<br>
+                      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Click me<br>
+                      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/button&gt;<br>
+                      &nbsp;&nbsp;&nbsp;&nbsp;&lt;/div&gt;<br>
+                      &nbsp;&nbsp;);<br>
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <h4 class="text-md font-bold dark-mode-transition">Interactive Exercise: Build a Simple Counter</h4>
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 dark-mode-transition">
+                  <p class="text-sm text-gray-600 dark-mode-transition mb-3">
+                    Try building a simple counter component with React hooks:
+                  </p>
+                  <div class="bg-gray-800 text-gray-200 p-3 rounded-lg text-sm font-mono overflow-x-auto">
+                    import React, { useState } from 'react';<br><br>
+
+                    function Counter() {<br>
+                    &nbsp;&nbsp;// Add state here<br><br>
+
+                    &nbsp;&nbsp;return (<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&lt;div&gt;<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{/* Add counter display and buttons here */}<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&lt;/div&gt;<br>
+                    &nbsp;&nbsp;);<br>
+                    }
+                  </div>
+                  <div class="mt-3 flex space-x-3">
+                    <button class="px-3 py-1.5 bg-primary-500 text-white rounded-md text-sm font-medium hover:bg-primary-600 transition-colors">
+                      Show Solution
+                    </button>
+                    <button class="px-3 py-1.5 border border-primary-500 text-primary-500 rounded-md text-sm font-medium hover:bg-primary-50 transition-colors">
+                      Try in CodeSandbox
+                    </button>
+                  </div>
+                </div>
+
+                <h4 class="text-md font-bold dark-mode-transition">Next Steps</h4>
+                <p class="text-gray-600 dark-mode-transition">
+                  After mastering these fundamentals, you'll be ready to explore more advanced React concepts like:
+                </p>
+                <ul class="list-disc pl-5 text-gray-600 dark-mode-transition">
+                  <li>Lifecycle methods and useEffect</li>
+                  <li>Context API for state management</li>
+                  <li>React Router for navigation</li>
+                  <li>Working with forms and controlled components</li>
+                </ul>
+
+                <h4 class="text-md font-bold dark-mode-transition">Additional Resources</h4>
+                <div class="space-y-2">
+                  <a href="#" class="flex items-center text-primary-600 hover:text-primary-700 transition-colors">
+                    <i class="fas fa-external-link-alt mr-2"></i>
+                    <span>React Official Documentation</span>
+                  </a>
+                  <a href="#" class="flex items-center text-primary-600 hover:text-primary-700 transition-colors">
+                    <i class="fas fa-external-link-alt mr-2"></i>
+                    <span>React Hooks API Reference</span>
+                  </a>
+                  <a href="#" class="flex items-center text-primary-600 hover:text-primary-700 transition-colors">
+                    <i class="fas fa-book mr-2"></i>
+                    <span>React Patterns and Best Practices</span>
+                  </a>
+                </div>
+              </div>
+            `,
+            progress: 40
+          }
+        };
+
+        // Set module content
+        const module = modules[moduleId] || {
+          title: 'Module Content',
+          content: `<p class="text-center py-8 text-gray-500 dark-mode-transition">This module content is not available yet.</p>`,
+          progress: 0
+        };
+
+        learningModuleTitle.textContent = module.title;
+        learningModuleContent.innerHTML = module.content;
+        moduleProgressBar.style.width = `${module.progress}%`;
+      }
+
+      // Close learning module modal
+      document.getElementById('closeLearningModuleModal').addEventListener('click', function () {
+        document.getElementById('learningModuleModal').classList.add('hidden');
+      });
+
+      // Mark module complete button
+      document.getElementById('markModuleCompleteBtn').addEventListener('click', function () {
+        const moduleProgressBar = document.getElementById('moduleProgressBar');
+        moduleProgressBar.style.width = '100%';
+        showToast('Module marked as complete!', 'success');
+
+        // In a real app, you would update the module status in the database
+        setTimeout(() => {
+          document.getElementById('learningModuleModal').classList.add('hidden');
+        }, 1500);
+      });
+
+      // Save roadmap button
+      document.getElementById('saveRoadmapBtn').addEventListener('click', function () {
+        showToast('Roadmap saved successfully!', 'success');
+      });
+
+      // Share roadmap button
+      document.getElementById('shareRoadmapBtn').addEventListener('click', function () {
+        // In a real app, you would generate a shareable link
+        navigator.clipboard.writeText('https://careercompass.example/roadmap/12345')
+          .then(() => {
+            showToast('Roadmap link copied to clipboard!', 'success');
+          })
+          .catch(() => {
+            showToast('Failed to copy link', 'error');
+          });
+      });
+
+      // Print roadmap button
+      document.getElementById('printRoadmapBtn').addEventListener('click', function () {
+        showToast('Preparing roadmap for printing...', 'info');
+        setTimeout(() => {
+          window.print();
+        }, 1000);
+      });
+
+      // Toast notification system
+      function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+
+        let bgColor, icon;
+        switch (type) {
+          case 'success':
+            bgColor = 'bg-green-500';
+            icon = 'fa-check-circle';
+            break;
+          case 'error':
+            bgColor = 'bg-red-500';
+            icon = 'fa-exclamation-circle';
+            break;
+          case 'warning':
+            bgColor = 'bg-yellow-500';
+            icon = 'fa-exclamation-triangle';
+            break;
+          default:
+            bgColor = 'bg-primary-500';
+            icon = 'fa-info-circle';
+        }
+
+        toast.className = `${bgColor} text-white p-4 rounded-lg shadow-lg flex items-start space-x-3 slide-in`;
+        toast.innerHTML = `
+          <i class="fas ${icon} mt-1"></i>
+          <div class="flex-1">
+            <p>${message}</p>
+          </div>
+          <button class="text-white hover:text-gray-200 close-toast">
+            <i class="fas fa-times"></i>
+          </button>
+        `;
+
+        toastContainer.appendChild(toast);
+
+        // Auto-remove toast after 5 seconds
+        setTimeout(() => {
+          toast.classList.remove('slide-in');
+          toast.classList.add('slide-out');
+          setTimeout(() => {
+            toast.remove();
+          }, 300);
+        }, 5000);
+
+        // Close button
+        toast.querySelector('.close-toast').addEventListener('click', function () {
+          toast.classList.remove('slide-in');
+          toast.classList.add('slide-out');
+          setTimeout(() => {
+            toast.remove();
+          }, 300);
+        });
+      }
+
+      // Create confetti effect
+      function createConfetti() {
+        const confettiCount = 100;
+        const colors = ['#1ea6ff', '#1ad18c', '#f43f5e', '#ecc94b', '#4299e1'];
+
+        for (let i = 0; i < confettiCount; i++) {
+          const confetti = document.createElement('div');
+          confetti.className = 'confetti';
+          confetti.style.left = Math.random() * 100 + 'vw';
+          confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+          confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+          confetti.style.animationDelay = (Math.random() * 2) + 's';
+          document.body.appendChild(confetti);
+
+          // Remove confetti after animation
+          setTimeout(() => {
+            confetti.remove();
+          }, 5000);
+        }
+      }
+
+      // Generate initial roadmap
+      generateRoadmap();
+
+      // Show welcome toast
+      setTimeout(() => {
+        showToast('Welcome to your Career Roadmap! Fill out the form to generate a personalized career path.', 'info');
+      }, 1000);
+    });
+  </script>
+</body>
+
+</html>
