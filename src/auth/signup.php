@@ -1,3 +1,111 @@
+<?php
+// Include database configuration
+require_once 'config.php';
+
+// Initialize variables
+$fullname = $email = $password = $confirm_password = "";
+$fullname_err = $email_err = $password_err = $confirm_password_err = "";
+$success_message = "";
+
+// Process form data when form is submitted
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    
+    // Validate fullname
+    if (empty(trim($_POST["fullname"]))) {
+        $fullname_err = "Please enter your full name.";
+    } else {
+        $fullname = trim($_POST["fullname"]);
+    }
+    
+    // Validate email
+    if (empty(trim($_POST["email"]))) {
+        $email_err = "Please enter your email.";
+    } else {
+        // Prepare a select statement
+        $sql = "SELECT id FROM users WHERE email = ?";
+        
+        if ($stmt = $conn->prepare($sql)) {
+            // Bind variables to the prepared statement as parameters
+            $stmt->bind_param("s", $param_email);
+            
+            // Set parameters
+            $param_email = trim($_POST["email"]);
+            
+            // Attempt to execute the prepared statement
+            if ($stmt->execute()) {
+                // Store result
+                $stmt->store_result();
+                
+                if ($stmt->num_rows > 0) {
+                    $email_err = "This email is already registered.";
+                } else {
+                    $email = trim($_POST["email"]);
+                }
+            } else {
+                echo "Oops! Something went wrong. Please try again later.";
+            }
+
+            // Close statement
+            $stmt->close();
+        }
+    }
+    
+    // Validate password
+    if (empty(trim($_POST["password"]))) {
+        $password_err = "Please enter a password.";     
+    } elseif (strlen(trim($_POST["password"])) < 8) {
+        $password_err = "Password must have at least 8 characters.";
+    } else {
+        $password = trim($_POST["password"]);
+    }
+    
+    // Validate confirm password
+    if (empty(trim($_POST["confirm-password"]))) {
+        $confirm_password_err = "Please confirm password.";     
+    } else {
+        $confirm_password = trim($_POST["confirm-password"]);
+        if (empty($password_err) && ($password != $confirm_password)) {
+            $confirm_password_err = "Passwords do not match.";
+        }
+    }
+    
+    // Check if terms checkbox is checked
+    if (!isset($_POST["terms"]) || $_POST["terms"] != "on") {
+        $terms_err = "You must agree to the Terms of Service and Privacy Policy.";
+    }
+    
+    // Check input errors before inserting in database
+    if (empty($fullname_err) && empty($email_err) && empty($password_err) && empty($confirm_password_err) && empty($terms_err)) {
+        
+        // Prepare an insert statement
+        $sql = "INSERT INTO users (fullname, email, password) VALUES (?, ?, ?)";
+         
+        if ($stmt = $conn->prepare($sql)) {
+            // Bind variables to the prepared statement as parameters
+            $stmt->bind_param("sss", $param_fullname, $param_email, $param_password);
+            
+            // Set parameters
+            $param_fullname = $fullname;
+            $param_email = $email;
+            $param_password = password_hash($password, PASSWORD_DEFAULT); // Creates a password hash
+            
+            // Attempt to execute the prepared statement
+            if ($stmt->execute()) {
+                // Redirect to login page
+                $success_message = "Registration successful! You can now log in.";
+                // Uncomment the line below to redirect to login page instead of showing success message
+                // header("location: login.php");
+            } else {
+                echo "Oops! Something went wrong. Please try again later.";
+            }
+
+            // Close statement
+            $stmt->close();
+        }
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -55,9 +163,15 @@
           <p class="text-center text-gray-600 mt-1">Join CareerCompass to discover your ideal career path</p>
         </div>
 
+        <?php if (!empty($success_message)): ?>
+        <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
+          <?php echo $success_message; ?>
+        </div>
+        <?php endif; ?>
+
         <!-- Signup Form -->
         <div class="p-6">
-          <form id="signup-form" class="space-y-4">
+          <form id="signup-form" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post" class="space-y-4">
             <!-- Full Name Field -->
             <div>
               <label for="fullname" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
@@ -66,10 +180,12 @@
                   <i class="fas fa-user text-gray-400"></i>
                 </div>
                 <input type="text" id="fullname" name="fullname"
-                  class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="John Doe" required>
+                  class="pl-10 w-full px-4 py-2 border <?php echo (!empty($fullname_err)) ? 'border-red-500' : 'border-gray-300'; ?> rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="John Doe" value="<?php echo $fullname; ?>" required>
               </div>
-              <p id="fullname-error" class="mt-1 text-sm text-red-600 hidden"></p>
+              <?php if (!empty($fullname_err)): ?>
+              <p class="mt-1 text-sm text-red-600"><?php echo $fullname_err; ?></p>
+              <?php endif; ?>
             </div>
 
             <!-- Email Field -->
@@ -80,10 +196,12 @@
                   <i class="fas fa-envelope text-gray-400"></i>
                 </div>
                 <input type="email" id="email" name="email"
-                  class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="your@email.com" required>
+                  class="pl-10 w-full px-4 py-2 border <?php echo (!empty($email_err)) ? 'border-red-500' : 'border-gray-300'; ?> rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="your@email.com" value="<?php echo $email; ?>" required>
               </div>
-              <p id="email-error" class="mt-1 text-sm text-red-600 hidden"></p>
+              <?php if (!empty($email_err)): ?>
+              <p class="mt-1 text-sm text-red-600"><?php echo $email_err; ?></p>
+              <?php endif; ?>
             </div>
 
             <!-- Password Field -->
@@ -94,7 +212,7 @@
                   <i class="fas fa-lock text-gray-400"></i>
                 </div>
                 <input type="password" id="password" name="password"
-                  class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  class="pl-10 w-full px-4 py-2 border <?php echo (!empty($password_err)) ? 'border-red-500' : 'border-gray-300'; ?> rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   placeholder="••••••••" required>
                 <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                   <button type="button" id="toggle-password"
@@ -104,7 +222,9 @@
                 </div>
               </div>
               <p class="mt-1 text-xs text-gray-500">Password must be at least 8 characters long</p>
-              <p id="password-error" class="mt-1 text-sm text-red-600 hidden"></p>
+              <?php if (!empty($password_err)): ?>
+              <p class="mt-1 text-sm text-red-600"><?php echo $password_err; ?></p>
+              <?php endif; ?>
             </div>
 
             <!-- Confirm Password Field -->
@@ -116,10 +236,12 @@
                   <i class="fas fa-lock text-gray-400"></i>
                 </div>
                 <input type="password" id="confirm-password" name="confirm-password"
-                  class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  class="pl-10 w-full px-4 py-2 border <?php echo (!empty($confirm_password_err)) ? 'border-red-500' : 'border-gray-300'; ?> rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   placeholder="••••••••" required>
               </div>
-              <p id="confirm-password-error" class="mt-1 text-sm text-red-600 hidden"></p>
+              <?php if (!empty($confirm_password_err)): ?>
+              <p class="mt-1 text-sm text-red-600"><?php echo $confirm_password_err; ?></p>
+              <?php endif; ?>
             </div>
 
             <!-- Terms and Conditions -->
@@ -135,7 +257,9 @@
                   and
                   <a href="#" class="text-primary-600 hover:text-primary-500">Privacy Policy</a>
                 </label>
-                <p id="terms-error" class="mt-1 text-sm text-red-600 hidden"></p>
+                <?php if (!empty($terms_err)): ?>
+                <p class="mt-1 text-sm text-red-600"><?php echo $terms_err; ?></p>
+                <?php endif; ?>
               </div>
             </div>
 
@@ -178,7 +302,7 @@
         <div class="px-6 py-4 bg-gray-50 border-t text-center">
           <p class="text-sm text-gray-600">
             Already have an account?
-            <a href="login.html" class="font-medium text-primary-600 hover:text-primary-500">
+            <a href="login.php" class="font-medium text-primary-600 hover:text-primary-500">
               Log in
             </a>
           </p>
@@ -217,100 +341,6 @@
       icon.classList.toggle('fa-eye');
       icon.classList.toggle('fa-eye-slash');
     });
-
-    // Form validation
-    const signupForm = document.getElementById('signup-form');
-    const fullnameInput = document.getElementById('fullname');
-    const emailInput = document.getElementById('email');
-    const confirmPasswordInput = document.getElementById('confirm-password');
-    const termsCheckbox = document.getElementById('terms');
-
-    const fullnameError = document.getElementById('fullname-error');
-    const emailError = document.getElementById('email-error');
-    const passwordError = document.getElementById('password-error');
-    const confirmPasswordError = document.getElementById('confirm-password-error');
-    const termsError = document.getElementById('terms-error');
-
-    signupForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      let isValid = true;
-
-      // Validate full name
-      if (!fullnameInput.value.trim()) {
-        showError(fullnameInput, fullnameError, 'Full name is required');
-        isValid = false;
-      } else if (fullnameInput.value.trim().length < 2) {
-        showError(fullnameInput, fullnameError, 'Full name must be at least 2 characters');
-        isValid = false;
-      } else {
-        hideError(fullnameInput, fullnameError);
-      }
-
-      // Validate email
-      if (!emailInput.value) {
-        showError(emailInput, emailError, 'Email is required');
-        isValid = false;
-      } else if (!isValidEmail(emailInput.value)) {
-        showError(emailInput, emailError, 'Please enter a valid email address');
-        isValid = false;
-      } else {
-        hideError(emailInput, emailError);
-      }
-
-      // Validate password
-      if (!passwordInput.value) {
-        showError(passwordInput, passwordError, 'Password is required');
-        isValid = false;
-      } else if (passwordInput.value.length < 8) {
-        showError(passwordInput, passwordError, 'Password must be at least 8 characters');
-        isValid = false;
-      } else {
-        hideError(passwordInput, passwordError);
-      }
-
-      // Validate confirm password
-      if (!confirmPasswordInput.value) {
-        showError(confirmPasswordInput, confirmPasswordError, 'Please confirm your password');
-        isValid = false;
-      } else if (confirmPasswordInput.value !== passwordInput.value) {
-        showError(confirmPasswordInput, confirmPasswordError, 'Passwords do not match');
-        isValid = false;
-      } else {
-        hideError(confirmPasswordInput, confirmPasswordError);
-      }
-
-      // Validate terms
-      if (!termsCheckbox.checked) {
-        termsError.textContent = 'You must agree to the Terms of Service and Privacy Policy';
-        termsError.classList.remove('hidden');
-        isValid = false;
-      } else {
-        termsError.classList.add('hidden');
-      }
-
-      if (isValid) {
-        // Redirect to the main page after successful signup
-        window.location.href = '../main/Home.html';
-      }
-    });
-
-    function showError(input, errorElement, message) {
-      input.classList.add('border-red-500');
-      input.classList.remove('border-gray-300');
-      errorElement.textContent = message;
-      errorElement.classList.remove('hidden');
-    }
-
-    function hideError(input, errorElement) {
-      input.classList.remove('border-red-500');
-      input.classList.add('border-gray-300');
-      errorElement.classList.add('hidden');
-    }
-
-    function isValidEmail(email) {
-      const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-      return re.test(String(email).toLowerCase());
-    }
   </script>
 </body>
 

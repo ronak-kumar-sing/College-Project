@@ -1,3 +1,133 @@
+<?php
+// Start session for user authentication
+session_start();
+
+// Include database configuration
+require_once "../auth/config.php";
+
+// Check if user is logged in
+if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
+    header("location: ../auth/login.php");
+    exit;
+}
+
+// Get user information
+$user_id = $_SESSION["id"];
+$fullname = $_SESSION["fullname"];
+$email = $_SESSION["email"];
+
+// Function to save assessment results
+function saveAssessmentResults($userId, $careerInterest, $questions, $answers, $results) {
+    global $conn;
+
+    // Convert arrays to JSON for storage
+    $questionsJson = json_encode($questions);
+    $answersJson = json_encode($answers);
+
+    // Prepare an insert statement
+    $sql = "INSERT INTO assessments (user_id, career_interest, questions, answers, results, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())";
+
+    if ($stmt = $conn->prepare($sql)) {
+        // Bind variables to the prepared statement as parameters
+        $stmt->bind_param("issss", $userId, $careerInterest, $questionsJson, $answersJson, $results);
+
+        // Execute the statement
+        $success = $stmt->execute();
+
+        // Close statement
+        $stmt->close();
+
+        return $success;
+    }
+
+    return false;
+}
+
+// Function to get past assessments
+function getPastAssessments($userId) {
+    global $conn;
+
+    $assessments = array();
+
+    // Prepare a select statement
+    $sql = "SELECT id, career_interest, results, created_at FROM assessments
+            WHERE user_id = ? ORDER BY created_at DESC LIMIT 5";
+
+    if ($stmt = $conn->prepare($sql)) {
+        // Bind variables to the prepared statement as parameters
+        $stmt->bind_param("i", $userId);
+
+        // Execute the statement
+        $stmt->execute();
+
+        // Bind result variables
+        $stmt->bind_result($id, $careerInterest, $results, $createdAt);
+
+        // Fetch results
+        while ($stmt->fetch()) {
+            $assessments[] = array(
+                "id" => $id,
+                "career_interest" => $careerInterest,
+                "results" => $results,
+                "created_at" => $createdAt
+            );
+        }
+
+        // Close statement
+        $stmt->close();
+    }
+
+    return $assessments;
+}
+
+// Create assessments table if it doesn't exist
+$sql = "CREATE TABLE IF NOT EXISTS assessments (
+    id INT(11) AUTO_INCREMENT PRIMARY KEY,
+    user_id INT(11) NOT NULL,
+    career_interest VARCHAR(255) NOT NULL,
+    questions TEXT NOT NULL,
+    answers TEXT NOT NULL,
+    results TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+)";
+
+if ($conn->query($sql) !== TRUE) {
+    die("Error creating assessments table: " . $conn->error);
+}
+
+// Handle AJAX requests
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
+    header("Content-Type: application/json");
+
+    if ($_POST["action"] == "save_assessment") {
+        // Get data from POST request
+        $careerInterest = $_POST["careerInterest"];
+        $questions = json_decode($_POST["questions"], true);
+        $answers = json_decode($_POST["answers"], true);
+        $results = $_POST["results"];
+
+        // Save assessment results
+        $success = saveAssessmentResults($user_id, $careerInterest, $questions, $answers, $results);
+
+        // Return response
+        echo json_encode(array("success" => $success));
+        exit;
+    } elseif ($_POST["action"] == "get_assessments") {
+        // Get past assessments
+        $assessments = getPastAssessments($user_id);
+
+        // Return response
+        echo json_encode(array("assessments" => $assessments));
+        exit;
+    }
+}
+
+// Get past assessments for display
+$pastAssessments = getPastAssessments($user_id);
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -7,6 +137,8 @@
   <title>Career Assessment Questionnaire</title>
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script>
     tailwind.config = {
       theme: {
@@ -53,17 +185,30 @@
   <!-- Navigation Header -->
   <header class="bg-white shadow-sm py-4 px-6 mb-8">
     <div class="container mx-auto flex justify-between items-center">
-      <a href="../../../index.html" class="flex items-center space-x-2">
+      <a href="../../index.php" class="flex items-center space-x-2">
         <i class="fas fa-compass text-primary text-xl"></i>
         <span class="text-xl font-bold">CareerCompass</span>
       </a>
       <nav class="flex space-x-6">
-        <a href="Home.html" class="text-primary font-medium">Career Assessment</a>
-        <a href="AiRoadmap.html" class="text-gray-600 hover:text-primary">Roadmap Generator</a>
-        <a href="Jobsections.html" class="text-gray-600 hover:text-primary">Job Listings</a>
-        <a href="../../../index.html" class="text-gray-600 hover:text-primary">
-          <i class="fas fa-sign-out-alt mr-1"></i> Logout
-        </a>
+        <a href="Home.php" class="text-primary font-medium">Career Assessment</a>
+        <a href="AiRoadmap.php" class="text-gray-600 hover:text-primary">Roadmap Generator</a>
+        <a href="Jobsections.php" class="text-gray-600 hover:text-primary">Job Listings</a>
+        <div class="relative group">
+          <button class="flex items-center text-gray-600 hover:text-primary">
+            <span class="mr-1">
+              <?php echo htmlspecialchars($fullname); ?>
+            </span>
+            <i class="fas fa-chevron-down text-xs"></i>
+          </button>
+          <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
+            <a href="../auth/profile.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
+            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
+            <div class="border-t border-gray-100"></div>
+            <a href="../auth/login.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+              <i class="fas fa-sign-out-alt mr-1"></i> Logout
+            </a>
+          </div>
+        </div>
       </nav>
     </div>
   </header>
@@ -80,6 +225,42 @@
       </div>
       <p class="text-gray-600">Complete this assessment to receive personalized career guidance</p>
     </header>
+
+    <!-- Past Assessments Section -->
+    <?php if (!empty($pastAssessments)): ?>
+    <div class="mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">Your Past Assessments</h2>
+        <button id="toggle-past-assessments" class="text-sm text-primary hover:text-blue-700">
+          <span id="toggle-text">Show</span> <i class="fas fa-chevron-down text-xs ml-1" id="toggle-icon"></i>
+        </button>
+      </div>
+      <div id="past-assessments-container" class="space-y-3 hidden">
+        <?php foreach ($pastAssessments as $assessment): ?>
+        <div class="card p-4 hover:shadow-md transition-shadow">
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="font-medium">
+                <?php echo htmlspecialchars($assessment["career_interest"]); ?>
+              </h3>
+              <p class="text-sm text-gray-500">
+                <?php echo date("F j, Y", strtotime($assessment["created_at"])); ?>
+              </p>
+            </div>
+            <button class="view-assessment-btn text-primary hover:text-blue-700 text-sm"
+              data-id="<?php echo $assessment[" id"]; ?>"
+              data-results="
+              <?php echo htmlspecialchars($assessment["results"]); ?>"
+              data-interest="
+              <?php echo htmlspecialchars($assessment["career_interest"]); ?>">
+              View Results
+            </button>
+          </div>
+        </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Intro Page -->
     <div id="intro-page" class="card">
@@ -179,7 +360,29 @@
 
         <div class="flex justify-between">
           <button id="new-assessment" class="btn btn-outline">Start New Assessment</button>
-          <button id="download-results" class="btn btn-primary">Download Results</button>
+          <div class="flex gap-2">
+            <button id="save-results" class="btn btn-outline">Save Results</button>
+            <button id="download-results" class="btn btn-primary">Download Results</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success Message -->
+    <div id="success-message" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+      <div class="absolute inset-0 bg-black opacity-50"></div>
+      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 z-10">
+        <div class="flex items-center justify-center text-green-500 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-center mb-2">Success!</h3>
+        <p class="text-gray-600 text-center mb-6" id="success-message-text">Your assessment results have been saved
+          successfully.</p>
+        <div class="flex justify-center">
+          <button id="close-success" class="btn btn-primary">Close</button>
         </div>
       </div>
     </div>
@@ -196,7 +399,9 @@
         currentAnswers: {},
         aiExplanation: '',
         results: '',
-        isLoading: false
+        isLoading: false,
+        userId: <? php echo $user_id; ?>,
+        userName: "<?php echo htmlspecialchars($fullname); ?>"
       };
 
       // DOM Elements
@@ -204,6 +409,8 @@
       const questionnaireContainer = document.getElementById('questionnaire-container');
       const processingPage = document.getElementById('processing-page');
       const resultsPage = document.getElementById('results-page');
+      const successMessage = document.getElementById('success-message');
+      const successMessageText = document.getElementById('success-message-text');
 
       const careerInterestInput = document.getElementById('career-interest');
       const startAssessmentButton = document.getElementById('start-assessment');
@@ -217,7 +424,15 @@
       const progressBar = document.getElementById('progress-bar');
       const resultsContent = document.getElementById('results-content');
       const newAssessmentButton = document.getElementById('new-assessment');
+      const saveResultsButton = document.getElementById('save-results');
       const downloadResultsButton = document.getElementById('download-results');
+      const closeSuccessButton = document.getElementById('close-success');
+
+      // Past assessments elements
+      const togglePastAssessmentsButton = document.getElementById('toggle-past-assessments');
+      const pastAssessmentsContainer = document.getElementById('past-assessments-container');
+      const toggleText = document.getElementById('toggle-text');
+      const toggleIcon = document.getElementById('toggle-icon');
 
       // Initial questions
       const initialQuestions = [
@@ -336,8 +551,56 @@
         resetAssessment();
       });
 
+      saveResultsButton.addEventListener('click', () => {
+        saveResults();
+      });
+
       downloadResultsButton.addEventListener('click', () => {
         downloadResults();
+      });
+
+      closeSuccessButton.addEventListener('click', () => {
+        successMessage.classList.add('hidden');
+      });
+
+      // Toggle past assessments
+      if (togglePastAssessmentsButton) {
+        togglePastAssessmentsButton.addEventListener('click', () => {
+          pastAssessmentsContainer.classList.toggle('hidden');
+          if (pastAssessmentsContainer.classList.contains('hidden')) {
+            toggleText.textContent = 'Show';
+            toggleIcon.classList.remove('fa-chevron-up');
+            toggleIcon.classList.add('fa-chevron-down');
+          } else {
+            toggleText.textContent = 'Hide';
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-up');
+          }
+        });
+      }
+
+      // Add event listeners to view assessment buttons
+      document.querySelectorAll('.view-assessment-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          const results = button.getAttribute('data-results');
+          const interest = button.getAttribute('data-interest');
+
+          // Set state values
+          state.results = results;
+          state.careerInterest = interest;
+
+          // Hide other pages and show results
+          introPage.classList.add('hidden');
+          questionnaireContainer.classList.add('hidden');
+          processingPage.classList.add('hidden');
+
+          // Format and display results
+          resultsContent.innerHTML = formatText(results);
+          resultsPage.classList.remove('hidden');
+
+          // Hide save button since it's already saved
+          saveResultsButton.classList.add('hidden');
+        });
       });
 
       // Functions
@@ -469,6 +732,9 @@ Please format your response with clear sections and bullet points where appropri
         processingPage.classList.add('hidden');
         resultsPage.classList.remove('hidden');
 
+        // Show save button for new assessments
+        saveResultsButton.classList.remove('hidden');
+
         // Format and display results
         resultsContent.innerHTML = formatText(state.results);
       }
@@ -487,6 +753,41 @@ Please format your response with clear sections and bullet points where appropri
 
         resultsPage.classList.add('hidden');
         introPage.classList.remove('hidden');
+      }
+
+      async function saveResults() {
+        try {
+          // Prepare data for saving
+          const data = new FormData();
+          data.append('action', 'save_assessment');
+          data.append('careerInterest', state.careerInterest);
+          data.append('questions', JSON.stringify(state.allPages));
+          data.append('answers', JSON.stringify(state.allAnswers));
+          data.append('results', state.results);
+
+          // Send data to server
+          const response = await fetch('Home.php', {
+            method: 'POST',
+            body: data
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            // Show success message
+            successMessageText.textContent = 'Your assessment results have been saved successfully.';
+            successMessage.classList.remove('hidden');
+
+            // Hide save button to prevent duplicate saves
+            saveResultsButton.classList.add('hidden');
+          } else {
+            throw new Error('Failed to save assessment results');
+          }
+        } catch (error) {
+          console.error('Error saving results:', error);
+          successMessageText.textContent = 'There was an error saving your results. Please try again.';
+          successMessage.classList.remove('hidden');
+        }
       }
 
       function downloadResults() {

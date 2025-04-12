@@ -1,3 +1,91 @@
+<?php
+// Initialize the session
+session_start();
+
+// Check if the user is already logged in, if yes then redirect to home page
+if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
+  header("location: ../main/Home.php");
+  exit;
+}
+
+// Include database configuration
+require_once "config.php";
+
+// Define variables and initialize with empty values
+$email = $password = "";
+$email_err = $password_err = $login_err = "";
+
+// Processing form data when form is submitted
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+
+  // Check if email is empty
+  if (empty(trim($_POST["email"]))) {
+    $email_err = "Please enter your email.";
+  } else {
+    $email = trim($_POST["email"]);
+  }
+
+  // Check if password is empty
+  if (empty(trim($_POST["password"]))) {
+    $password_err = "Please enter your password.";
+  } else {
+    $password = trim($_POST["password"]);
+  }
+
+  // Validate credentials
+  if (empty($email_err) && empty($password_err)) {
+    // Prepare a select statement
+    $sql = "SELECT id, fullname, email, password FROM users WHERE email = ?";
+
+    if ($stmt = $conn->prepare($sql)) {
+      // Bind variables to the prepared statement as parameters
+      $stmt->bind_param("s", $param_email);
+
+      // Set parameters
+      $param_email = $email;
+
+      // Attempt to execute the prepared statement
+      if ($stmt->execute()) {
+        // Store result
+        $stmt->store_result();
+
+        // Check if email exists, if yes then verify password
+        if ($stmt->num_rows == 1) {
+          // Bind result variables
+          $stmt->bind_result($id, $fullname, $email, $hashed_password);
+          if ($stmt->fetch()) {
+            if (password_verify($password, $hashed_password)) {
+              // Password is correct, so start a new session
+              session_start();
+
+              // Store data in session variables
+              $_SESSION["loggedin"] = true;
+              $_SESSION["id"] = $id;
+              $_SESSION["fullname"] = $fullname;
+              $_SESSION["email"] = $email;
+
+              // Redirect user to home page
+              header("location: ../main/Home.php");
+            } else {
+              // Password is not valid, display a generic error message
+              $login_err = "Invalid email or password.";
+            }
+          }
+        } else {
+          // Email doesn't exist, display a generic error message
+          $login_err = "Invalid email or password.";
+        }
+      } else {
+        echo "Oops! Something went wrong. Please try again later.";
+      }
+
+      // Close statement
+      $stmt->close();
+    }
+  }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -55,9 +143,15 @@
           <p class="text-center text-gray-600 mt-1">Log in to continue your career journey</p>
         </div>
 
+        <?php if (!empty($login_err)): ?>
+          <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
+            <?php echo $login_err; ?>
+          </div>
+        <?php endif; ?>
+
         <!-- Login Form -->
         <div class="p-6">
-          <form id="login-form" class="space-y-4">
+          <form id="login-form" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post" class="space-y-4">
             <!-- Email Field -->
             <div>
               <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -66,10 +160,12 @@
                   <i class="fas fa-envelope text-gray-400"></i>
                 </div>
                 <input type="email" id="email" name="email"
-                  class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="your@email.com" required>
+                  class="pl-10 w-full px-4 py-2 border <?php echo (!empty($email_err)) ? 'border-red-500' : 'border-gray-300'; ?> rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="your@email.com" value="<?php echo $email; ?>" required>
               </div>
-              <p id="email-error" class="mt-1 text-sm text-red-600 hidden"></p>
+              <?php if (!empty($email_err)): ?>
+                <p class="mt-1 text-sm text-red-600"><?php echo $email_err; ?></p>
+              <?php endif; ?>
             </div>
 
             <!-- Password Field -->
@@ -83,7 +179,7 @@
                   <i class="fas fa-lock text-gray-400"></i>
                 </div>
                 <input type="password" id="password" name="password"
-                  class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  class="pl-10 w-full px-4 py-2 border <?php echo (!empty($password_err)) ? 'border-red-500' : 'border-gray-300'; ?> rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   placeholder="••••••••" required>
                 <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                   <button type="button" id="toggle-password"
@@ -92,7 +188,9 @@
                   </button>
                 </div>
               </div>
-              <p id="password-error" class="mt-1 text-sm text-red-600 hidden"></p>
+              <?php if (!empty($password_err)): ?>
+                <p class="mt-1 text-sm text-red-600"><?php echo $password_err; ?></p>
+              <?php endif; ?>
             </div>
 
             <!-- Remember Me -->
@@ -143,7 +241,7 @@
         <div class="px-6 py-4 bg-gray-50 border-t text-center">
           <p class="text-sm text-gray-600">
             Don't have an account?
-            <a href="signup.html" class="font-medium text-primary-600 hover:text-primary-500">
+            <a href="signup.php" class="font-medium text-primary-600 hover:text-primary-500">
               Sign up
             </a>
           </p>
@@ -173,7 +271,7 @@
     const togglePassword = document.getElementById('toggle-password');
     const passwordInput = document.getElementById('password');
 
-    togglePassword.addEventListener('click', function () {
+    togglePassword.addEventListener('click', function() {
       const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
       passwordInput.setAttribute('type', type);
 
@@ -181,89 +279,6 @@
       const icon = this.querySelector('i');
       icon.classList.toggle('fa-eye');
       icon.classList.toggle('fa-eye-slash');
-    });
-
-    // Form validation
-    const loginForm = document.getElementById('login-form');
-    const emailInput = document.getElementById('email');
-    const emailError = document.getElementById('email-error');
-    const passwordError = document.getElementById('password-error');
-
-    loginForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      let isValid = true;
-
-      // Validate email
-      if (!emailInput.value) {
-        showError(emailInput, emailError, 'Email is required');
-        isValid = false;
-      } else if (!isValidEmail(emailInput.value)) {
-        showError(emailInput, emailError, 'Please enter a valid email address');
-        isValid = false;
-      } else {
-        hideError(emailInput, emailError);
-      }
-
-      // Validate password
-      if (!passwordInput.value) {
-        showError(passwordInput, passwordError, 'Password is required');
-        isValid = false;
-      } else {
-        hideError(passwordInput, passwordError);
-      }
-
-      if (isValid) {
-        // Redirect to the dashboard
-        window.location.href = '../main/Home.html';
-      }
-    });
-
-    function showError(input, errorElement, message) {
-      input.classList.add('border-red-500');
-      input.classList.remove('border-gray-300');
-      errorElement.textContent = message;
-      errorElement.classList.remove('hidden');
-    }
-
-    function hideError(input, errorElement) {
-      input.classList.remove('border-red-500');
-      input.classList.add('border-gray-300');
-      errorElement.classList.add('hidden');
-    }
-
-    function isValidEmail(email) {
-      const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-      return re.test(String(email).toLowerCase());
-    }
-
-    // Update login form submission
-    loginForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      let isValid = true;
-
-      // Validate email
-      if (!emailInput.value) {
-        showError(emailInput, emailError, 'Email is required');
-        isValid = false;
-      } else if (!isValidEmail(emailInput.value)) {
-        showError(emailInput, emailError, 'Please enter a valid email address');
-        isValid = false;
-      } else {
-        hideError(emailInput, emailError);
-      }
-
-      // Validate password
-      if (!passwordInput.value) {
-        showError(passwordInput, passwordError, 'Password is required');
-        isValid = false;
-      } else {
-        hideError(passwordInput, passwordError);
-      }
-
-      if (isValid) {
-        // Redirect to the dashboard
-        window.location.href = '../main/Home.html';
-      }
     });
   </script>
 </body>
