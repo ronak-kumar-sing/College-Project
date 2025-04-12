@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - CareerCompass</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-gray-50 font-sans min-h-screen flex flex-col">
+  <!-- Header with logo -->
+  <header class="py-4 px-6 bg-white shadow-sm">
+    <div class="container mx-auto">
+      <a href="../../../index.html" class="flex items-center space-x-2">
+        <i class="fas fa-compass text-primary-600 text-xl"></i>
+        <span class="text-xl font-bold">CareerCompass</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="flex-grow flex items-center justify-center px-4 py-12">
+    <div class="w-full max-w-md">
+      <!-- Login Card -->
+      <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <!-- Card Header -->
+        <div class="p-6 border-b">
+          <h1 class="text-2xl font-bold text-center text-gray-900">Welcome Back</h1>
+          <p class="text-center text-gray-600 mt-1">Log in to continue your career journey</p>
+        </div>
+
+        <!-- Login Form -->
+        <div class="p-6">
+          <form id="login-form" class="space-y-4">
+            <!-- Email Field -->
+            <div>
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <i class="fas fa-envelope text-gray-400"></i>
+                </div>
+                <input type="email" id="email" name="email"
+                  class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="your@email.com" required>
+              </div>
+              <p id="email-error" class="mt-1 text-sm text-red-600 hidden"></p>
+            </div>
+
+            <!-- Password Field -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                <a href="#" class="text-sm text-primary-600 hover:text-primary-500">Forgot password?</a>
+              </div>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <i class="fas fa-lock text-gray-400"></i>
+                </div>
+                <input type="password" id="password" name="password"
+                  class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="••••••••" required>
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                  <button type="button" id="toggle-password"
+                    class="text-gray-400 hover:text-gray-500 focus:outline-none">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                </div>
+              </div>
+              <p id="password-error" class="mt-1 text-sm text-red-600 hidden"></p>
+            </div>
+
+            <!-- Remember Me -->
+            <div class="flex items-center">
+              <input type="checkbox" id="remember-me" name="remember-me"
+                class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+              <label for="remember-me" class="ml-2 block text-sm text-gray-700">
+                Remember me
+              </label>
+            </div>
+
+            <!-- Login Button -->
+            <div>
+              <button type="submit"
+                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                Log In
+              </button>
+            </div>
+          </form>
+
+          <!-- Social Login -->
+          <div class="mt-6">
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-gray-300"></div>
+              </div>
+              <div class="relative flex justify-center text-sm">
+                <span class="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+
+            <div class="mt-6 grid grid-cols-2 gap-3">
+              <button type="button"
+                class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <i class="fab fa-google mr-2"></i>
+                Google
+              </button>
+              <button type="button"
+                class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <i class="fab fa-linkedin mr-2"></i>
+                LinkedIn
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Footer -->
+        <div class="px-6 py-4 bg-gray-50 border-t text-center">
+          <p class="text-sm text-gray-600">
+            Don't have an account?
+            <a href="signup.html" class="font-medium text-primary-600 hover:text-primary-500">
+              Sign up
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="py-4 px-6 bg-white border-t">
+    <div class="container mx-auto">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <p class="text-sm text-gray-600 mb-4 md:mb-0">
+          © 2025 CareerCompass. All rights reserved.
+        </p>
+        <div class="flex space-x-6">
+          <a href="#" class="text-sm text-gray-600 hover:text-primary-600">Privacy Policy</a>
+          <a href="#" class="text-sm text-gray-600 hover:text-primary-600">Terms of Service</a>
+          <a href="#" class="text-sm text-gray-600 hover:text-primary-600">Contact Us</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Toggle password visibility
+    const togglePassword = document.getElementById('toggle-password');
+    const passwordInput = document.getElementById('password');
+
+    togglePassword.addEventListener('click', function () {
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+
+      // Toggle icon
+      const icon = this.querySelector('i');
+      icon.classList.toggle('fa-eye');
+      icon.classList.toggle('fa-eye-slash');
+    });
+
+    // Form validation
+    const loginForm = document.getElementById('login-form');
+    const emailInput = document.getElementById('email');
+    const emailError = document.getElementById('email-error');
+    const passwordError = document.getElementById('password-error');
+
+    loginForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      let isValid = true;
+
+      // Validate email
+      if (!emailInput.value) {
+        showError(emailInput, emailError, 'Email is required');
+        isValid = false;
+      } else if (!isValidEmail(emailInput.value)) {
+        showError(emailInput, emailError, 'Please enter a valid email address');
+        isValid = false;
+      } else {
+        hideError(emailInput, emailError);
+      }
+
+      // Validate password
+      if (!passwordInput.value) {
+        showError(passwordInput, passwordError, 'Password is required');
+        isValid = false;
+      } else {
+        hideError(passwordInput, passwordError);
+      }
+
+      if (isValid) {
+        // Redirect to the dashboard
+        window.location.href = '../main/Home.html';
+      }
+    });
+
+    function showError(input, errorElement, message) {
+      input.classList.add('border-red-500');
+      input.classList.remove('border-gray-300');
+      errorElement.textContent = message;
+      errorElement.classList.remove('hidden');
+    }
+
+    function hideError(input, errorElement) {
+      input.classList.remove('border-red-500');
+      input.classList.add('border-gray-300');
+      errorElement.classList.add('hidden');
+    }
+
+    function isValidEmail(email) {
+      const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+      return re.test(String(email).toLowerCase());
+    }
+
+    // Update login form submission
+    loginForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      let isValid = true;
+
+      // Validate email
+      if (!emailInput.value) {
+        showError(emailInput, emailError, 'Email is required');
+        isValid = false;
+      } else if (!isValidEmail(emailInput.value)) {
+        showError(emailInput, emailError, 'Please enter a valid email address');
+        isValid = false;
+      } else {
+        hideError(emailInput, emailError);
+      }
+
+      // Validate password
+      if (!passwordInput.value) {
+        showError(passwordInput, passwordError, 'Password is required');
+        isValid = false;
+      } else {
+        hideError(passwordInput, passwordError);
+      }
+
+      if (isValid) {
+        // Redirect to the dashboard
+        window.location.href = '../main/Home.html';
+      }
+    });
+  </script>
+</body>
+
+</html>
