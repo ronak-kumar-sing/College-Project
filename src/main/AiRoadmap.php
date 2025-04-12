@@ -7,8 +7,8 @@ require_once "../auth/config.php";
 
 // Check if user is logged in
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
-    header("location: ../auth/login.php");
-    exit;
+  header("location: ../auth/login.php");
+  exit;
 }
 
 // Get user information
@@ -17,67 +17,69 @@ $fullname = $_SESSION["fullname"];
 $email = $_SESSION["email"];
 
 // Function to save roadmap
-function saveRoadmap($userId, $careerGoal, $currentSkills, $interests, $timeframe, $roadmap) {
-    global $conn;
+function saveRoadmap($userId, $careerGoal, $currentSkills, $interests, $timeframe, $roadmap)
+{
+  global $conn;
 
-    // Convert roadmap to JSON for storage
-    $roadmapJson = json_encode($roadmap);
+  // Convert roadmap to JSON for storage
+  $roadmapJson = json_encode($roadmap);
 
-    // Prepare an insert statement
-    $sql = "INSERT INTO roadmaps (user_id, career_goal, current_skills, interests, timeframe, roadmap, created_at)
+  // Prepare an insert statement
+  $sql = "INSERT INTO roadmaps (user_id, career_goal, current_skills, interests, timeframe, roadmap, created_at)
             VALUES (?, ?, ?, ?, ?, ?, NOW())";
 
-    if ($stmt = $conn->prepare($sql)) {
-        // Bind variables to the prepared statement as parameters
-        $stmt->bind_param("isssss", $userId, $careerGoal, $currentSkills, $interests, $timeframe, $roadmapJson);
+  if ($stmt = $conn->prepare($sql)) {
+    // Bind variables to the prepared statement as parameters
+    $stmt->bind_param("isssss", $userId, $careerGoal, $currentSkills, $interests, $timeframe, $roadmapJson);
 
-        // Execute the statement
-        $success = $stmt->execute();
+    // Execute the statement
+    $success = $stmt->execute();
 
-        // Close statement
-        $stmt->close();
+    // Close statement
+    $stmt->close();
 
-        return $success;
-    }
+    return $success;
+  }
 
-    return false;
+  return false;
 }
 
 // Function to get saved roadmaps
-function getSavedRoadmaps($userId) {
-    global $conn;
+function getSavedRoadmaps($userId)
+{
+  global $conn;
 
-    $roadmaps = array();
+  $roadmaps = array();
 
-    // Prepare a select statement
-    $sql = "SELECT id, career_goal, timeframe, created_at FROM roadmaps
+  // Prepare a select statement
+  $sql = "SELECT id, career_goal, timeframe, created_at FROM roadmaps
             WHERE user_id = ? ORDER BY created_at DESC LIMIT 5";
 
-    if ($stmt = $conn->prepare($sql)) {
-        // Bind variables to the prepared statement as parameters
-        $stmt->bind_param("i", $userId);
+  if ($stmt = $conn->prepare($sql)) {
+    // Bind variables to the prepared statement as parameters
+    $stmt->bind_param("i", $userId);
 
-        // Execute the statement
-        $stmt->execute();
+    // Execute the statement
+    $stmt->execute();
 
-        // Bind result variables
-        $stmt->bind_result($id, $careerGoal, $timeframe, $createdAt);
+    // Bind result variables
+    $stmt->bind_result($id, $careerGoal, $timeframe, $createdAt);
 
-        // Fetch results
-        while ($stmt->fetch()) {
-            $roadmaps[] = array(
-                "id" => $id,
-                "career_goal" => $careerGoal,
-                "timeframe" => $timeframe,
-                "created_at" => $createdAt
-            );
-        }
-
-        // Close statement
-        $stmt->close();
+    // Fetch results
+    while ($stmt->fetch()) {
+      $roadmaps[] = array(
+        "id" => $id,
+        "career_goal" => $careerGoal,
+        "timeframe" => $timeframe,
+        "created_at" => $createdAt
+      );
     }
 
-    return $roadmaps;
+    // Close statement
+    $stmt->close();
+  }
+
+  return $roadmaps;
 }
 
 // Create roadmaps table if it doesn't exist
@@ -94,70 +96,70 @@ $sql = "CREATE TABLE IF NOT EXISTS roadmaps (
 )";
 
 if ($conn->query($sql) !== TRUE) {
-    die("Error creating roadmaps table: " . $conn->error);
+  die("Error creating roadmaps table: " . $conn->error);
 }
 
 // Handle AJAX requests
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
-    header("Content-Type: application/json");
+  header("Content-Type: application/json");
 
-    if ($_POST["action"] == "save_roadmap") {
-        // Get data from POST request
-        $careerGoal = $_POST["careerGoal"];
-        $currentSkills = $_POST["currentSkills"];
-        $interests = $_POST["interests"];
-        $timeframe = $_POST["timeframe"];
-        $roadmap = json_decode($_POST["roadmap"], true);
+  if ($_POST["action"] == "save_roadmap") {
+    // Get data from POST request
+    $careerGoal = $_POST["careerGoal"];
+    $currentSkills = $_POST["currentSkills"];
+    $interests = $_POST["interests"];
+    $timeframe = $_POST["timeframe"];
+    $roadmap = json_decode($_POST["roadmap"], true);
 
-        // Save roadmap
-        $success = saveRoadmap($user_id, $careerGoal, $currentSkills, $interests, $timeframe, $roadmap);
+    // Save roadmap
+    $success = saveRoadmap($user_id, $careerGoal, $currentSkills, $interests, $timeframe, $roadmap);
 
-        // Return response
-        echo json_encode(array("success" => $success));
-        exit;
-    } elseif ($_POST["action"] == "get_roadmap") {
-        // Get roadmap by ID
-        $roadmapId = $_POST["roadmapId"];
+    // Return response
+    echo json_encode(array("success" => $success));
+    exit;
+  } elseif ($_POST["action"] == "get_roadmap") {
+    // Get roadmap by ID
+    $roadmapId = $_POST["roadmapId"];
 
-        // Prepare a select statement
-        $sql = "SELECT career_goal, current_skills, interests, timeframe, roadmap FROM roadmaps
+    // Prepare a select statement
+    $sql = "SELECT career_goal, current_skills, interests, timeframe, roadmap FROM roadmaps
                 WHERE id = ? AND user_id = ?";
 
-        if ($stmt = $conn->prepare($sql)) {
-            // Bind variables to the prepared statement as parameters
-            $stmt->bind_param("ii", $roadmapId, $user_id);
+    if ($stmt = $conn->prepare($sql)) {
+      // Bind variables to the prepared statement as parameters
+      $stmt->bind_param("ii", $roadmapId, $user_id);
 
-            // Execute the statement
-            $stmt->execute();
+      // Execute the statement
+      $stmt->execute();
 
-            // Bind result variables
-            $stmt->bind_result($careerGoal, $currentSkills, $interests, $timeframe, $roadmapJson);
+      // Bind result variables
+      $stmt->bind_result($careerGoal, $currentSkills, $interests, $timeframe, $roadmapJson);
 
-            // Fetch result
-            if ($stmt->fetch()) {
-                $roadmap = json_decode($roadmapJson, true);
+      // Fetch result
+      if ($stmt->fetch()) {
+        $roadmap = json_decode($roadmapJson, true);
 
-                // Return response
-                echo json_encode(array(
-                    "success" => true,
-                    "careerGoal" => $careerGoal,
-                    "currentSkills" => $currentSkills,
-                    "interests" => $interests,
-                    "timeframe" => $timeframe,
-                    "roadmap" => $roadmap
-                ));
-            } else {
-                echo json_encode(array("success" => false, "message" => "Roadmap not found"));
-            }
+        // Return response
+        echo json_encode(array(
+          "success" => true,
+          "careerGoal" => $careerGoal,
+          "currentSkills" => $currentSkills,
+          "interests" => $interests,
+          "timeframe" => $timeframe,
+          "roadmap" => $roadmap
+        ));
+      } else {
+        echo json_encode(array("success" => false, "message" => "Roadmap not found"));
+      }
 
-            // Close statement
-            $stmt->close();
-            exit;
-        }
-
-        echo json_encode(array("success" => false, "message" => "Error retrieving roadmap"));
-        exit;
+      // Close statement
+      $stmt->close();
+      exit;
     }
+
+    echo json_encode(array("success" => false, "message" => "Error retrieving roadmap"));
+    exit;
+  }
 }
 
 // Get saved roadmaps for display
@@ -267,35 +269,35 @@ $savedRoadmaps = getSavedRoadmaps($user_id);
 
     <!-- Saved Roadmaps Section -->
     <?php if (!empty($savedRoadmaps)): ?>
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">Your Saved Roadmaps</h2>
-        <button id="toggle-saved-roadmaps" class="text-sm text-primary hover:text-blue-700">
-          <span id="toggle-text">Show</span> <i class="fas fa-chevron-down text-xs ml-1" id="toggle-icon"></i>
-        </button>
-      </div>
-      <div id="saved-roadmaps-container" class="space-y-3 hidden">
-        <?php foreach ($savedRoadmaps as $roadmap): ?>
-        <div class="card p-4 hover:shadow-md transition-shadow">
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="font-medium">
-                <?php echo htmlspecialchars($roadmap["career_goal"]); ?>
-              </h3>
-              <p class="text-sm text-gray-500">
-                <?php echo $roadmap["timeframe"] ? htmlspecialchars($roadmap["timeframe"]) . ' • ' : ''; ?>
-                <?php echo date("F j, Y", strtotime($roadmap["created_at"])); ?>
-              </p>
-            </div>
-            <button class="view-roadmap-btn text-primary hover:text-blue-700 text-sm" data-id="<?php echo $roadmap["
-              id"]; ?>">
-              View Roadmap
-            </button>
-          </div>
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold">Your Saved Roadmaps</h2>
+          <button id="toggle-saved-roadmaps" class="text-sm text-primary hover:text-blue-700">
+            <span id="toggle-text">Show</span> <i class="fas fa-chevron-down text-xs ml-1" id="toggle-icon"></i>
+          </button>
         </div>
-        <?php endforeach; ?>
+        <div id="saved-roadmaps-container" class="space-y-3 hidden">
+          <?php foreach ($savedRoadmaps as $roadmap): ?>
+            <div class="card p-4 hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start">
+                <div>
+                  <h3 class="font-medium">
+                    <?php echo htmlspecialchars($roadmap["career_goal"]); ?>
+                  </h3>
+                  <p class="text-sm text-gray-500">
+                    <?php echo $roadmap["timeframe"] ? htmlspecialchars($roadmap["timeframe"]) . ' • ' : ''; ?>
+                    <?php echo date("F j, Y", strtotime($roadmap["created_at"])); ?>
+                  </p>
+                </div>
+                <button class="view-roadmap-btn text-primary hover:text-blue-700 text-sm" data-id="<?php echo $roadmap["
+              id"]; ?>">
+                  View Roadmap
+                </button>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
       </div>
-    </div>
     <?php endif; ?>
 
     <!-- Input Form -->
@@ -374,7 +376,7 @@ $savedRoadmaps = getSavedRoadmaps($user_id);
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a3 3 0 003-3V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
               </svg>
               Save
             </button>
@@ -431,7 +433,7 @@ $savedRoadmaps = getSavedRoadmaps($user_id);
         roadmap: [],
         isLoading: false,
         error: null,
-        userId: <? php echo $user_id; ?>,
+        userId: <?php echo $user_id; ?>,
         userName: "<?php echo htmlspecialchars($fullname); ?>"
       };
 
@@ -464,6 +466,9 @@ $savedRoadmaps = getSavedRoadmaps($user_id);
       const savedRoadmapsContainer = document.getElementById('saved-roadmaps-container');
       const toggleText = document.getElementById('toggle-text');
       const toggleIcon = document.getElementById('toggle-icon');
+
+      // Add this after defining DOM elements
+      generateRoadmapButton.disabled = !careerGoalInput.value.trim();
 
       // Event Listeners
       careerGoalInput.addEventListener('input', () => {
@@ -851,6 +856,7 @@ Make the roadmap practical, actionable, and tailored to my specific career goals
           }
 
           const text = data.candidates[0].content.parts[0].text;
+          console.log("Raw API response:", text);
           console.log("Roadmap generation response:", text);
 
           // Extract the roadmap from the response
@@ -858,8 +864,7 @@ Make the roadmap practical, actionable, and tailored to my specific career goals
 
           if (roadmap.length === 0) {
             // Fallback roadmap if extraction fails
-            return [
-              {
+            return [{
                 title: "Research and Exploration",
                 description: "Explore the field and identify key skills needed",
                 timeframe: "2-4 weeks",

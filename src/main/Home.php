@@ -7,8 +7,8 @@ require_once "../auth/config.php";
 
 // Check if user is logged in
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
-    header("location: ../auth/login.php");
-    exit;
+  header("location: ../auth/login.php");
+  exit;
 }
 
 // Get user information
@@ -17,68 +17,70 @@ $fullname = $_SESSION["fullname"];
 $email = $_SESSION["email"];
 
 // Function to save assessment results
-function saveAssessmentResults($userId, $careerInterest, $questions, $answers, $results) {
-    global $conn;
+function saveAssessmentResults($userId, $careerInterest, $questions, $answers, $results)
+{
+  global $conn;
 
-    // Convert arrays to JSON for storage
-    $questionsJson = json_encode($questions);
-    $answersJson = json_encode($answers);
+  // Convert arrays to JSON for storage
+  $questionsJson = json_encode($questions);
+  $answersJson = json_encode($answers);
 
-    // Prepare an insert statement
-    $sql = "INSERT INTO assessments (user_id, career_interest, questions, answers, results, created_at)
+  // Prepare an insert statement
+  $sql = "INSERT INTO assessments (user_id, career_interest, questions, answers, results, created_at)
             VALUES (?, ?, ?, ?, ?, NOW())";
 
-    if ($stmt = $conn->prepare($sql)) {
-        // Bind variables to the prepared statement as parameters
-        $stmt->bind_param("issss", $userId, $careerInterest, $questionsJson, $answersJson, $results);
+  if ($stmt = $conn->prepare($sql)) {
+    // Bind variables to the prepared statement as parameters
+    $stmt->bind_param("issss", $userId, $careerInterest, $questionsJson, $answersJson, $results);
 
-        // Execute the statement
-        $success = $stmt->execute();
+    // Execute the statement
+    $success = $stmt->execute();
 
-        // Close statement
-        $stmt->close();
+    // Close statement
+    $stmt->close();
 
-        return $success;
-    }
+    return $success;
+  }
 
-    return false;
+  return false;
 }
 
 // Function to get past assessments
-function getPastAssessments($userId) {
-    global $conn;
+function getPastAssessments($userId)
+{
+  global $conn;
 
-    $assessments = array();
+  $assessments = array();
 
-    // Prepare a select statement
-    $sql = "SELECT id, career_interest, results, created_at FROM assessments
+  // Prepare a select statement
+  $sql = "SELECT id, career_interest, results, created_at FROM assessments
             WHERE user_id = ? ORDER BY created_at DESC LIMIT 5";
 
-    if ($stmt = $conn->prepare($sql)) {
-        // Bind variables to the prepared statement as parameters
-        $stmt->bind_param("i", $userId);
+  if ($stmt = $conn->prepare($sql)) {
+    // Bind variables to the prepared statement as parameters
+    $stmt->bind_param("i", $userId);
 
-        // Execute the statement
-        $stmt->execute();
+    // Execute the statement
+    $stmt->execute();
 
-        // Bind result variables
-        $stmt->bind_result($id, $careerInterest, $results, $createdAt);
+    // Bind result variables
+    $stmt->bind_result($id, $careerInterest, $results, $createdAt);
 
-        // Fetch results
-        while ($stmt->fetch()) {
-            $assessments[] = array(
-                "id" => $id,
-                "career_interest" => $careerInterest,
-                "results" => $results,
-                "created_at" => $createdAt
-            );
-        }
-
-        // Close statement
-        $stmt->close();
+    // Fetch results
+    while ($stmt->fetch()) {
+      $assessments[] = array(
+        "id" => $id,
+        "career_interest" => $careerInterest,
+        "results" => $results,
+        "created_at" => $createdAt
+      );
     }
 
-    return $assessments;
+    // Close statement
+    $stmt->close();
+  }
+
+  return $assessments;
 }
 
 // Create assessments table if it doesn't exist
@@ -94,34 +96,34 @@ $sql = "CREATE TABLE IF NOT EXISTS assessments (
 )";
 
 if ($conn->query($sql) !== TRUE) {
-    die("Error creating assessments table: " . $conn->error);
+  die("Error creating assessments table: " . $conn->error);
 }
 
 // Handle AJAX requests
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
-    header("Content-Type: application/json");
+  header("Content-Type: application/json");
 
-    if ($_POST["action"] == "save_assessment") {
-        // Get data from POST request
-        $careerInterest = $_POST["careerInterest"];
-        $questions = json_decode($_POST["questions"], true);
-        $answers = json_decode($_POST["answers"], true);
-        $results = $_POST["results"];
+  if ($_POST["action"] == "save_assessment") {
+    // Get data from POST request
+    $careerInterest = $_POST["careerInterest"];
+    $questions = json_decode($_POST["questions"], true);
+    $answers = json_decode($_POST["answers"], true);
+    $results = $_POST["results"];
 
-        // Save assessment results
-        $success = saveAssessmentResults($user_id, $careerInterest, $questions, $answers, $results);
+    // Save assessment results
+    $success = saveAssessmentResults($user_id, $careerInterest, $questions, $answers, $results);
 
-        // Return response
-        echo json_encode(array("success" => $success));
-        exit;
-    } elseif ($_POST["action"] == "get_assessments") {
-        // Get past assessments
-        $assessments = getPastAssessments($user_id);
+    // Return response
+    echo json_encode(array("success" => $success));
+    exit;
+  } elseif ($_POST["action"] == "get_assessments") {
+    // Get past assessments
+    $assessments = getPastAssessments($user_id);
 
-        // Return response
-        echo json_encode(array("assessments" => $assessments));
-        exit;
-    }
+    // Return response
+    echo json_encode(array("assessments" => $assessments));
+    exit;
+  }
 }
 
 // Get past assessments for display
@@ -228,38 +230,36 @@ $pastAssessments = getPastAssessments($user_id);
 
     <!-- Past Assessments Section -->
     <?php if (!empty($pastAssessments)): ?>
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">Your Past Assessments</h2>
-        <button id="toggle-past-assessments" class="text-sm text-primary hover:text-blue-700">
-          <span id="toggle-text">Show</span> <i class="fas fa-chevron-down text-xs ml-1" id="toggle-icon"></i>
-        </button>
-      </div>
-      <div id="past-assessments-container" class="space-y-3 hidden">
-        <?php foreach ($pastAssessments as $assessment): ?>
-        <div class="card p-4 hover:shadow-md transition-shadow">
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="font-medium">
-                <?php echo htmlspecialchars($assessment["career_interest"]); ?>
-              </h3>
-              <p class="text-sm text-gray-500">
-                <?php echo date("F j, Y", strtotime($assessment["created_at"])); ?>
-              </p>
-            </div>
-            <button class="view-assessment-btn text-primary hover:text-blue-700 text-sm"
-              data-id="<?php echo $assessment[" id"]; ?>"
-              data-results="
-              <?php echo htmlspecialchars($assessment["results"]); ?>"
-              data-interest="
-              <?php echo htmlspecialchars($assessment["career_interest"]); ?>">
-              View Results
-            </button>
-          </div>
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold">Your Past Assessments</h2>
+          <button id="toggle-past-assessments" class="text-sm text-primary hover:text-blue-700">
+            <span id="toggle-text">Show</span> <i class="fas fa-chevron-down text-xs ml-1" id="toggle-icon"></i>
+          </button>
         </div>
-        <?php endforeach; ?>
+        <div id="past-assessments-container" class="space-y-3 hidden">
+          <?php foreach ($pastAssessments as $assessment): ?>
+            <div class="card p-4 hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start">
+                <div>
+                  <h3 class="font-medium">
+                    <?php echo htmlspecialchars($assessment["career_interest"]); ?>
+                  </h3>
+                  <p class="text-sm text-gray-500">
+                    <?php echo date("F j, Y", strtotime($assessment["created_at"])); ?>
+                  </p>
+                </div>
+                <button class="view-assessment-btn text-primary hover:text-blue-700 text-sm"
+                  data-id="<?php echo $assessment["id"]; ?>"
+                  data-results="<?php echo htmlspecialchars($assessment["results"]); ?>"
+                  data-interest="<?php echo htmlspecialchars($assessment["career_interest"]); ?>">
+                  View Results
+                </button>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
       </div>
-    </div>
     <?php endif; ?>
 
     <!-- Intro Page -->
@@ -285,7 +285,7 @@ $pastAssessments = getPastAssessments($user_id);
         </div>
 
         <div class="flex justify-end">
-          <button id="start-assessment" class="btn btn-primary" disabled>Start Assessment</button>
+          <button id="start-assessment" class="btn btn-primary">Start Assessment</button>
         </div>
       </div>
     </div>
@@ -400,7 +400,7 @@ $pastAssessments = getPastAssessments($user_id);
         aiExplanation: '',
         results: '',
         isLoading: false,
-        userId: <? php echo $user_id; ?>,
+        userId: <?php echo $user_id; ?>,
         userName: "<?php echo htmlspecialchars($fullname); ?>"
       };
 
@@ -434,6 +434,9 @@ $pastAssessments = getPastAssessments($user_id);
       const toggleText = document.getElementById('toggle-text');
       const toggleIcon = document.getElementById('toggle-icon');
 
+      // Initialize button state right after DOM elements are defined
+      startAssessmentButton.disabled = !careerInterestInput.value.trim();
+
       // Initial questions
       const initialQuestions = [
         "What subjects or topics do you enjoy learning about?",
@@ -462,11 +465,15 @@ $pastAssessments = getPastAssessments($user_id);
       prevButton.addEventListener('click', () => {
         if (state.currentPage > 0) {
           // Save current answers before going back
-          state.allAnswers[state.currentPage] = { ...state.currentAnswers };
+          state.allAnswers[state.currentPage] = {
+            ...state.currentAnswers
+          };
 
           // Go to previous page
           state.currentPage--;
-          state.currentAnswers = { ...state.allAnswers[state.currentPage] };
+          state.currentAnswers = {
+            ...state.allAnswers[state.currentPage]
+          };
 
           renderCurrentPage();
         }
@@ -474,7 +481,9 @@ $pastAssessments = getPastAssessments($user_id);
 
       nextButton.addEventListener('click', async () => {
         // Save current page answers
-        state.allAnswers[state.currentPage] = { ...state.currentAnswers };
+        state.allAnswers[state.currentPage] = {
+          ...state.currentAnswers
+        };
 
         // If we're on the last page, complete the questionnaire
         if (state.currentPage === state.totalPages - 1) {
@@ -510,7 +519,10 @@ $pastAssessments = getPastAssessments($user_id);
           }
 
           // Generate new questions based on previous answers
-          const { questions, explanation } = await generateQuestionsBasedOnAnswers(
+          const {
+            questions,
+            explanation
+          } = await generateQuestionsBasedOnAnswers(
             state.careerInterest,
             answersContext,
             3 // 3 questions per page
@@ -1000,8 +1012,8 @@ Do not include any text outside of this JSON object.`;
             } catch (err) {
               // Only retry on network errors or 5xx server errors
               if (attempt < retries && (err.name === 'AbortError' ||
-                err.name === 'TypeError' ||
-                err.message.includes('status 5'))) {
+                  err.name === 'TypeError' ||
+                  err.message.includes('status 5'))) {
                 console.warn(`API call failed, retrying (${attempt + 1}/${retries})...`, err);
                 // Exponential backoff: wait 1s, then 2s, then 4s, etc.
                 await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
