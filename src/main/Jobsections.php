@@ -446,7 +446,7 @@ $allJobs = getUserPostedJobs();
             <a href="../auth/profile.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
             <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
             <div class="border-t border-gray-100"></div>
-            <a href="../../logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+            <a href="../auth/logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
               <i class="fas fa-sign-out-alt mr-1"></i> Logout
             </a>
           </div>
