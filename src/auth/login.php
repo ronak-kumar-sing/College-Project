@@ -125,7 +125,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <!-- Header with logo -->
   <header class="py-4 px-6 bg-white shadow-sm">
     <div class="container mx-auto">
-      <a href="../../../index.html" class="flex items-center space-x-2">
+      <a href="../../index.html" class="flex items-center space-x-2">
         <i class="fas fa-compass text-primary-600 text-xl"></i>
         <span class="text-xl font-bold">CareerCompass</span>
       </a>

@@ -9,100 +9,100 @@ $success_message = "";
 
 // Process form data when form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    
-    // Validate fullname
-    if (empty(trim($_POST["fullname"]))) {
-        $fullname_err = "Please enter your full name.";
-    } else {
-        $fullname = trim($_POST["fullname"]);
-    }
-    
-    // Validate email
-    if (empty(trim($_POST["email"]))) {
-        $email_err = "Please enter your email.";
-    } else {
-        // Prepare a select statement
-        $sql = "SELECT id FROM users WHERE email = ?";
-        
-        if ($stmt = $conn->prepare($sql)) {
-            // Bind variables to the prepared statement as parameters
-            $stmt->bind_param("s", $param_email);
-            
-            // Set parameters
-            $param_email = trim($_POST["email"]);
-            
-            // Attempt to execute the prepared statement
-            if ($stmt->execute()) {
-                // Store result
-                $stmt->store_result();
-                
-                if ($stmt->num_rows > 0) {
-                    $email_err = "This email is already registered.";
-                } else {
-                    $email = trim($_POST["email"]);
-                }
-            } else {
-                echo "Oops! Something went wrong. Please try again later.";
-            }
 
-            // Close statement
-            $stmt->close();
-        }
-    }
-    
-    // Validate password
-    if (empty(trim($_POST["password"]))) {
-        $password_err = "Please enter a password.";     
-    } elseif (strlen(trim($_POST["password"])) < 8) {
-        $password_err = "Password must have at least 8 characters.";
-    } else {
-        $password = trim($_POST["password"]);
-    }
-    
-    // Validate confirm password
-    if (empty(trim($_POST["confirm-password"]))) {
-        $confirm_password_err = "Please confirm password.";     
-    } else {
-        $confirm_password = trim($_POST["confirm-password"]);
-        if (empty($password_err) && ($password != $confirm_password)) {
-            $confirm_password_err = "Passwords do not match.";
-        }
-    }
-    
-    // Check if terms checkbox is checked
-    if (!isset($_POST["terms"]) || $_POST["terms"] != "on") {
-        $terms_err = "You must agree to the Terms of Service and Privacy Policy.";
-    }
-    
-    // Check input errors before inserting in database
-    if (empty($fullname_err) && empty($email_err) && empty($password_err) && empty($confirm_password_err) && empty($terms_err)) {
-        
-        // Prepare an insert statement
-        $sql = "INSERT INTO users (fullname, email, password) VALUES (?, ?, ?)";
-         
-        if ($stmt = $conn->prepare($sql)) {
-            // Bind variables to the prepared statement as parameters
-            $stmt->bind_param("sss", $param_fullname, $param_email, $param_password);
-            
-            // Set parameters
-            $param_fullname = $fullname;
-            $param_email = $email;
-            $param_password = password_hash($password, PASSWORD_DEFAULT); // Creates a password hash
-            
-            // Attempt to execute the prepared statement
-            if ($stmt->execute()) {
-                // Redirect to login page
-                $success_message = "Registration successful! You can now log in.";
-                // Uncomment the line below to redirect to login page instead of showing success message
-                // header("location: login.php");
-            } else {
-                echo "Oops! Something went wrong. Please try again later.";
-            }
+  // Validate fullname
+  if (empty(trim($_POST["fullname"]))) {
+    $fullname_err = "Please enter your full name.";
+  } else {
+    $fullname = trim($_POST["fullname"]);
+  }
 
-            // Close statement
-            $stmt->close();
+  // Validate email
+  if (empty(trim($_POST["email"]))) {
+    $email_err = "Please enter your email.";
+  } else {
+    // Prepare a select statement
+    $sql = "SELECT id FROM users WHERE email = ?";
+
+    if ($stmt = $conn->prepare($sql)) {
+      // Bind variables to the prepared statement as parameters
+      $stmt->bind_param("s", $param_email);
+
+      // Set parameters
+      $param_email = trim($_POST["email"]);
+
+      // Attempt to execute the prepared statement
+      if ($stmt->execute()) {
+        // Store result
+        $stmt->store_result();
+
+        if ($stmt->num_rows > 0) {
+          $email_err = "This email is already registered.";
+        } else {
+          $email = trim($_POST["email"]);
         }
+      } else {
+        echo "Oops! Something went wrong. Please try again later.";
+      }
+
+      // Close statement
+      $stmt->close();
     }
+  }
+
+  // Validate password
+  if (empty(trim($_POST["password"]))) {
+    $password_err = "Please enter a password.";
+  } elseif (strlen(trim($_POST["password"])) < 8) {
+    $password_err = "Password must have at least 8 characters.";
+  } else {
+    $password = trim($_POST["password"]);
+  }
+
+  // Validate confirm password
+  if (empty(trim($_POST["confirm-password"]))) {
+    $confirm_password_err = "Please confirm password.";
+  } else {
+    $confirm_password = trim($_POST["confirm-password"]);
+    if (empty($password_err) && ($password != $confirm_password)) {
+      $confirm_password_err = "Passwords do not match.";
+    }
+  }
+
+  // Check if terms checkbox is checked
+  if (!isset($_POST["terms"]) || $_POST["terms"] != "on") {
+    $terms_err = "You must agree to the Terms of Service and Privacy Policy.";
+  }
+
+  // Check input errors before inserting in database
+  if (empty($fullname_err) && empty($email_err) && empty($password_err) && empty($confirm_password_err) && empty($terms_err)) {
+
+    // Prepare an insert statement
+    $sql = "INSERT INTO users (fullname, email, password) VALUES (?, ?, ?)";
+
+    if ($stmt = $conn->prepare($sql)) {
+      // Bind variables to the prepared statement as parameters
+      $stmt->bind_param("sss", $param_fullname, $param_email, $param_password);
+
+      // Set parameters
+      $param_fullname = $fullname;
+      $param_email = $email;
+      $param_password = password_hash($password, PASSWORD_DEFAULT); // Creates a password hash
+
+      // Attempt to execute the prepared statement
+      if ($stmt->execute()) {
+        // Redirect to login page
+        $success_message = "Registration successful! You can now log in.";
+        // Uncomment the line below to redirect to login page instead of showing success message
+        // header("location: login.php");
+      } else {
+        echo "Oops! Something went wrong. Please try again later.";
+      }
+
+      // Close statement
+      $stmt->close();
+    }
+  }
 }
 ?>
 
@@ -145,7 +145,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <!-- Header with logo -->
   <header class="py-4 px-6 bg-white shadow-sm">
     <div class="container mx-auto">
-      <a href="../../../index.html" class="flex items-center space-x-2">
+      <a href="../../index.html" class="flex items-center space-x-2">
         <i class="fas fa-compass text-primary-600 text-xl"></i>
         <span class="text-xl font-bold">CareerCompass</span>
       </a>
@@ -164,9 +164,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
 
         <?php if (!empty($success_message)): ?>
-        <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
-          <?php echo $success_message; ?>
-        </div>
+          <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
+            <?php echo $success_message; ?>
+          </div>
         <?php endif; ?>
 
         <!-- Signup Form -->
@@ -184,7 +184,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                   placeholder="John Doe" value="<?php echo $fullname; ?>" required>
               </div>
               <?php if (!empty($fullname_err)): ?>
-              <p class="mt-1 text-sm text-red-600"><?php echo $fullname_err; ?></p>
+                <p class="mt-1 text-sm text-red-600"><?php echo $fullname_err; ?></p>
               <?php endif; ?>
             </div>
 
@@ -200,7 +200,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                   placeholder="your@email.com" value="<?php echo $email; ?>" required>
               </div>
               <?php if (!empty($email_err)): ?>
-              <p class="mt-1 text-sm text-red-600"><?php echo $email_err; ?></p>
+                <p class="mt-1 text-sm text-red-600"><?php echo $email_err; ?></p>
               <?php endif; ?>
             </div>
 
@@ -223,7 +223,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
               </div>
               <p class="mt-1 text-xs text-gray-500">Password must be at least 8 characters long</p>
               <?php if (!empty($password_err)): ?>
-              <p class="mt-1 text-sm text-red-600"><?php echo $password_err; ?></p>
+                <p class="mt-1 text-sm text-red-600"><?php echo $password_err; ?></p>
               <?php endif; ?>
             </div>
 
@@ -240,7 +240,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                   placeholder="••••••••" required>
               </div>
               <?php if (!empty($confirm_password_err)): ?>
-              <p class="mt-1 text-sm text-red-600"><?php echo $confirm_password_err; ?></p>
+                <p class="mt-1 text-sm text-red-600"><?php echo $confirm_password_err; ?></p>
               <?php endif; ?>
             </div>
 
@@ -258,7 +258,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                   <a href="#" class="text-primary-600 hover:text-primary-500">Privacy Policy</a>
                 </label>
                 <?php if (!empty($terms_err)): ?>
-                <p class="mt-1 text-sm text-red-600"><?php echo $terms_err; ?></p>
+                  <p class="mt-1 text-sm text-red-600"><?php echo $terms_err; ?></p>
                 <?php endif; ?>
               </div>
             </div>
@@ -332,7 +332,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     const togglePassword = document.getElementById('toggle-password');
     const passwordInput = document.getElementById('password');
 
-    togglePassword.addEventListener('click', function () {
+    togglePassword.addEventListener('click', function() {
       const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
       passwordInput.setAttribute('type', type);
 
