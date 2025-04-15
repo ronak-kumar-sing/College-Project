@@ -266,7 +266,6 @@ $email = $_SESSION["email"];
 
       const goalText = document.getElementById('goal-text');
       const roadmapContainer = document.getElementById('roadmap-container');
-      const saveRoadmapButton = document.getElementById('save-roadmap');
       const downloadRoadmapButton = document.getElementById('download-roadmap');
       const newRoadmapButton = document.getElementById('new-roadmap');
       const closeSuccessButton = document.getElementById('close-success');
@@ -318,110 +317,12 @@ $email = $_SESSION["email"];
         showInputForm();
       });
 
-      saveRoadmapButton.addEventListener('click', async () => {
-        try {
-          // Prepare data for saving
-          const data = new FormData();
-          data.append('action', 'save_roadmap');
-          data.append('careerGoal', state.careerGoal);
-          data.append('currentSkills', state.currentSkills);
-          data.append('interests', state.interests);
-          data.append('timeframe', state.timeframe);
-          data.append('roadmap', JSON.stringify(state.roadmap));
-
-          // Send data to server
-          const response = await fetch('AiRoadmap.php', {
-            method: 'POST',
-            body: data
-          });
-
-          const result = await response.json();
-
-          if (result.success) {
-            // Show success message
-            successMessageText.textContent = 'Your roadmap has been saved successfully.';
-            successMessage.classList.remove('hidden');
-
-            // Hide save button to prevent duplicate saves
-            saveRoadmapButton.classList.add('hidden');
-          } else {
-            throw new Error('Failed to save roadmap');
-          }
-        } catch (error) {
-          console.error('Error saving roadmap:', error);
-          successMessageText.textContent = 'There was an error saving your roadmap. Please try again.';
-          successMessage.classList.remove('hidden');
-        }
-      });
-
       downloadRoadmapButton.addEventListener('click', () => {
         downloadRoadmap();
       });
 
       closeSuccessButton.addEventListener('click', () => {
         successMessage.classList.add('hidden');
-      });
-
-      // Toggle saved roadmaps
-      if (toggleSavedRoadmapsButton) {
-        toggleSavedRoadmapsButton.addEventListener('click', () => {
-          savedRoadmapsContainer.classList.toggle('hidden');
-          if (savedRoadmapsContainer.classList.contains('hidden')) {
-            toggleText.textContent = 'Show';
-            toggleIcon.classList.remove('fa-chevron-up');
-            toggleIcon.classList.add('fa-chevron-down');
-          } else {
-            toggleText.textContent = 'Hide';
-            toggleIcon.classList.remove('fa-chevron-down');
-            toggleIcon.classList.add('fa-chevron-up');
-          }
-        });
-      }
-
-      // Add event listeners to view roadmap buttons
-      document.querySelectorAll('.view-roadmap-btn').forEach(button => {
-        button.addEventListener('click', async () => {
-          const roadmapId = button.getAttribute('data-id');
-
-          try {
-            // Show loading state
-            showLoadingState();
-
-            // Prepare data for request
-            const data = new FormData();
-            data.append('action', 'get_roadmap');
-            data.append('roadmapId', roadmapId);
-
-            // Send request to server
-            const response = await fetch('AiRoadmap.php', {
-              method: 'POST',
-              body: data
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-              // Set state values
-              state.careerGoal = result.careerGoal;
-              state.currentSkills = result.currentSkills;
-              state.interests = result.interests;
-              state.timeframe = result.timeframe;
-              state.roadmap = result.roadmap;
-
-              // Show roadmap results
-              showRoadmapResults();
-
-              // Hide save button since it's already saved
-              saveRoadmapButton.classList.add('hidden');
-            } else {
-              throw new Error(result.message || 'Failed to retrieve roadmap');
-            }
-          } catch (error) {
-            console.error('Error retrieving roadmap:', error);
-            state.error = error.message || 'Unable to retrieve roadmap. Please try again.';
-            showErrorState();
-          }
-        });
       });
 
       // Functions

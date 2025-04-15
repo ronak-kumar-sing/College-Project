@@ -16,118 +16,8 @@ $user_id = $_SESSION["id"];
 $fullname = $_SESSION["fullname"];
 $email = $_SESSION["email"];
 
-// Function to save assessment results
-function saveAssessmentResults($userId, $careerInterest, $questions, $answers, $results)
-{
-  global $conn;
-
-  // Convert arrays to JSON for storage
-  $questionsJson = json_encode($questions);
-  $answersJson = json_encode($answers);
-
-  // Prepare an insert statement
-  $sql = "INSERT INTO assessments (user_id, career_interest, questions, answers, results, created_at)
-            VALUES (?, ?, ?, ?, ?, NOW())";
-
-  if ($stmt = $conn->prepare($sql)) {
-    // Bind variables to the prepared statement as parameters
-    $stmt->bind_param("issss", $userId, $careerInterest, $questionsJson, $answersJson, $results);
-
-    // Execute the statement
-    $success = $stmt->execute();
-
-    // Close statement
-    $stmt->close();
-
-    return $success;
-  }
-
-  return false;
-}
-
-// Function to get past assessments
-function getPastAssessments($userId)
-{
-  global $conn;
-
-  $assessments = array();
-
-  // Prepare a select statement
-  $sql = "SELECT id, career_interest, results, created_at FROM assessments
-            WHERE user_id = ? ORDER BY created_at DESC LIMIT 5";
-
-  if ($stmt = $conn->prepare($sql)) {
-    // Bind variables to the prepared statement as parameters
-    $stmt->bind_param("i", $userId);
-
-    // Execute the statement
-    $stmt->execute();
-
-    // Bind result variables
-    $stmt->bind_result($id, $careerInterest, $results, $createdAt);
-
-    // Fetch results
-    while ($stmt->fetch()) {
-      $assessments[] = array(
-        "id" => $id,
-        "career_interest" => $careerInterest,
-        "results" => $results,
-        "created_at" => $createdAt
-      );
-    }
-
-    // Close statement
-    $stmt->close();
-  }
-
-  return $assessments;
-}
-
-// Create assessments table if it doesn't exist
-$sql = "CREATE TABLE IF NOT EXISTS assessments (
-    id INT(11) AUTO_INCREMENT PRIMARY KEY,
-    user_id INT(11) NOT NULL,
-    career_interest VARCHAR(255) NOT NULL,
-    questions TEXT NOT NULL,
-    answers TEXT NOT NULL,
-    results TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-)";
-
-if ($conn->query($sql) !== TRUE) {
-  die("Error creating assessments table: " . $conn->error);
-}
-
-// Handle AJAX requests
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
-  header("Content-Type: application/json");
-
-  if ($_POST["action"] == "save_assessment") {
-    // Get data from POST request
-    $careerInterest = $_POST["careerInterest"];
-    $questions = json_decode($_POST["questions"], true);
-    $answers = json_decode($_POST["answers"], true);
-    $results = $_POST["results"];
-
-    // Save assessment results
-    $success = saveAssessmentResults($user_id, $careerInterest, $questions, $answers, $results);
-
-    // Return response
-    echo json_encode(array("success" => $success));
-    exit;
-  } elseif ($_POST["action"] == "get_assessments") {
-    // Get past assessments
-    $assessments = getPastAssessments($user_id);
-
-    // Return response
-    echo json_encode(array("assessments" => $assessments));
-    exit;
-  }
-}
-
-// Get past assessments for display
-$pastAssessments = getPastAssessments($user_id);
+// Set empty array instead of calling database
+$pastAssessments = [];
 ?>
 
 <!DOCTYPE html>
@@ -769,35 +659,20 @@ Please format your response with clear sections and bullet points where appropri
 
       async function saveResults() {
         try {
-          // Prepare data for saving
-          const data = new FormData();
-          data.append('action', 'save_assessment');
-          data.append('careerInterest', state.careerInterest);
-          data.append('questions', JSON.stringify(state.allPages));
-          data.append('answers', JSON.stringify(state.allAnswers));
-          data.append('results', state.results);
+          // Instead of saving to database, we'll just show success message
+          successMessageText.textContent = 'Your assessment results cannot be saved (database disabled).';
+          successMessage.classList.remove('hidden');
 
-          // Send data to server
-          const response = await fetch('Home.php', {
-            method: 'POST',
-            body: data
+          // For demonstration purposes only
+          console.log("Assessment data (not saved to database):", {
+            careerInterest: state.careerInterest,
+            questions: state.allPages,
+            answers: state.allAnswers,
+            results: state.results
           });
-
-          const result = await response.json();
-
-          if (result.success) {
-            // Show success message
-            successMessageText.textContent = 'Your assessment results have been saved successfully.';
-            successMessage.classList.remove('hidden');
-
-            // Hide save button to prevent duplicate saves
-            saveResultsButton.classList.add('hidden');
-          } else {
-            throw new Error('Failed to save assessment results');
-          }
         } catch (error) {
-          console.error('Error saving results:', error);
-          successMessageText.textContent = 'There was an error saving your results. Please try again.';
+          console.error('Error:', error);
+          successMessageText.textContent = 'Feature disabled: database saving removed.';
           successMessage.classList.remove('hidden');
         }
       }
