@@ -3,8 +3,8 @@
 require_once 'config.php';
 
 // Initialize variables
-$fullname = $email = $password = $confirm_password = "";
-$fullname_err = $email_err = $password_err = $confirm_password_err = "";
+$fullname = $email = $password = $confirm_password = $role = ""; // Add $role
+$fullname_err = $email_err = $password_err = $confirm_password_err = $role_err = $terms_err = ""; // Add $role_err and $terms_err
 $success_message = "";
 
 // Process form data when form is submitted
@@ -69,30 +69,42 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
   }
 
+  // Validate role selection
+  if (empty($_POST["role"])) {
+      $role_err = "Please select a role.";
+  } elseif (!in_array($_POST["role"], ['user', 'hr'])) { // Only allow 'user' or 'hr'
+      $role_err = "Invalid role selected.";
+  } else {
+      $role = $_POST["role"];
+  }
+
   // Check if terms checkbox is checked
   if (!isset($_POST["terms"]) || $_POST["terms"] != "on") {
     $terms_err = "You must agree to the Terms of Service and Privacy Policy.";
   }
 
   // Check input errors before inserting in database
-  if (empty($fullname_err) && empty($email_err) && empty($password_err) && empty($confirm_password_err) && empty($terms_err)) {
+  if (empty($fullname_err) && empty($email_err) && empty($password_err) && empty($confirm_password_err) && empty($role_err) && empty($terms_err)) {
 
     // Prepare an insert statement
-    $sql = "INSERT INTO users (fullname, email, password) VALUES (?, ?, ?)";
+    $sql = "INSERT INTO users (fullname, email, password, role) VALUES (?, ?, ?, ?)";
 
     if ($stmt = $conn->prepare($sql)) {
       // Bind variables to the prepared statement as parameters
-      $stmt->bind_param("sss", $param_fullname, $param_email, $param_password);
+      $stmt->bind_param("ssss", $param_fullname, $param_email, $param_password, $param_role);
 
       // Set parameters
       $param_fullname = $fullname;
       $param_email = $email;
       $param_password = password_hash($password, PASSWORD_DEFAULT); // Creates a password hash
+      $param_role = $role;
 
       // Attempt to execute the prepared statement
       if ($stmt->execute()) {
         // Redirect to login page
         $success_message = "Registration successful! You can now log in.";
+        // Clear form fields after success
+        $fullname = $email = $password = $confirm_password = $role = "";
         // Uncomment the line below to redirect to login page instead of showing success message
         // header("location: login.php");
       } else {
@@ -229,8 +241,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             <!-- Confirm Password Field -->
             <div>
-              <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirm
-                Password</label>
+              <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <i class="fas fa-lock text-gray-400"></i>
@@ -241,6 +252,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
               </div>
               <?php if (!empty($confirm_password_err)): ?>
                 <p class="mt-1 text-sm text-red-600"><?php echo $confirm_password_err; ?></p>
+              <?php endif; ?>
+            </div>
+
+            <!-- Role Selection Field -->
+            <div>
+              <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Select Role</label>
+              <div class="relative">
+                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                   <i class="fas fa-user-tag text-gray-400"></i>
+                 </div>
+                <select id="role" name="role" required
+                  class="pl-10 w-full px-4 py-2 border <?php echo (!empty($role_err)) ? 'border-red-500' : 'border-gray-300'; ?> rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none">
+                  <option value="" disabled <?php echo (empty($role)) ? 'selected' : ''; ?>>-- Select your role --</option>
+                  <option value="user" <?php echo ($role == 'user') ? 'selected' : ''; ?>>Job Seeker</option>
+                  <option value="hr" <?php echo ($role == 'hr') ? 'selected' : ''; ?>>HR / Recruiter</option>
+                  <!-- Note: 'admin' role is intentionally omitted for public signup -->
+                </select>
+                 <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                   <i class="fas fa-chevron-down text-gray-400"></i>
+                 </div>
+              </div>
+              <?php if (!empty($role_err)): ?>
+                <p class="mt-1 text-sm text-red-600"><?php echo $role_err; ?></p>
               <?php endif; ?>
             </div>
 

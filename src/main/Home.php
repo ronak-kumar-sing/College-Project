@@ -16,6 +16,24 @@ $user_id = $_SESSION["id"];
 $fullname = $_SESSION["fullname"];
 $email = $_SESSION["email"];
 
+// --- AJAX Handler for Saving Assessment to Session ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_results']) && isset($_POST['career_interest']) && isset($_POST['skills'])) {
+    header('Content-Type: application/json'); // Ensure JSON response
+    $skills = json_decode($_POST['skills'], true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+         echo json_encode(['success' => false, 'message' => 'Invalid skills format.']);
+         exit;
+    }
+    $_SESSION['assessment_results'] = [
+        'career_interest' => $_POST['career_interest'],
+        'skills' => $skills, // Store the decoded array
+        'timestamp' => time()
+    ];
+    echo json_encode(['success' => true]); // Send JSON success response
+    exit; // Stop script execution after AJAX response
+}
+// --- End AJAX Handler ---
+
 // Set empty array instead of calling database
 $pastAssessments = [];
 ?>
@@ -454,7 +472,7 @@ $pastAssessments = [];
       });
 
       saveResultsButton.addEventListener('click', () => {
-        saveResults();
+        saveResults(); // Call the updated saveResults function
       });
 
       downloadResultsButton.addEventListener('click', () => {
@@ -463,6 +481,11 @@ $pastAssessments = [];
 
       closeSuccessButton.addEventListener('click', () => {
         successMessage.classList.add('hidden');
+        // Remove the dynamically added button if it exists
+        const viewJobsBtn = document.querySelector('#success-message .btn-primary.mt-4');
+        if (viewJobsBtn) {
+            viewJobsBtn.remove();
+        }
       });
 
       // Toggle past assessments
@@ -657,25 +680,85 @@ Please format your response with clear sections and bullet points where appropri
         introPage.classList.remove('hidden');
       }
 
+      // Updated saveResults function
       async function saveResults() {
-        try {
-          // Instead of saving to database, we'll just show success message
-          successMessageText.textContent = 'Your assessment results cannot be saved (database disabled).';
-          successMessage.classList.remove('hidden');
+        // Disable button immediately
+        saveResultsButton.disabled = true;
+        saveResultsButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
 
-          // For demonstration purposes only
-          console.log("Assessment data (not saved to database):", {
-            careerInterest: state.careerInterest,
-            questions: state.allPages,
-            answers: state.allAnswers,
-            results: state.results
-          });
+        try {
+            // Extract skills from results
+            const skillsMatch = state.results.match(/(?:should develop|recommend|focus on)[\s\S]*?(?:skills|technologies)[\s\S]*?([^.]+)/gi) || [];
+            let skills = [];
+
+            if (skillsMatch.length > 0) {
+                skills = skillsMatch[0]
+                    .replace(/(should develop|recommend|focus on|skills|technologies|\.|:)/gi, '')
+                    .split(/[,&]|and|\bor\b/)
+                    .map(s => s.trim())
+                    .filter(s => s.length > 0 && !s.match(/^[^a-zA-Z0-9]+$/));
+            }
+            console.log("Extracted Skills for Session:", skills); // Debugging
+
+            // Save to session via AJAX
+            const response = await fetch('Home.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `save_results=true&career_interest=${encodeURIComponent(state.careerInterest)}&skills=${encodeURIComponent(JSON.stringify(skills))}`
+            });
+
+            // Check if response is OK before parsing JSON
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                successMessageText.textContent = 'Your assessment results have been saved. You can now view personalized job recommendations.';
+                successMessage.classList.remove('hidden');
+
+                // Remove existing button if it's there from a previous save
+                const existingBtn = document.querySelector('#success-message .btn-primary.mt-4');
+                if (existingBtn) existingBtn.remove();
+
+                // Add button to view jobs
+                const viewJobsBtn = document.createElement('button');
+                viewJobsBtn.className = 'btn btn-primary mt-4'; // Added margin-top
+                viewJobsBtn.textContent = 'View Recommended Jobs';
+                viewJobsBtn.onclick = () => {
+                    window.location.href = 'Jobsections.php';
+                };
+                // Insert the new button before the close button's container
+                const closeButtonContainer = document.querySelector('#success-message .flex.justify-center');
+                if (closeButtonContainer) {
+                    closeButtonContainer.before(viewJobsBtn);
+                } else {
+                    // Fallback if the structure is different
+                    successMessage.querySelector('.bg-white').appendChild(viewJobsBtn);
+                }
+
+                // Keep save button disabled and show saved state
+                saveResultsButton.innerHTML = '<i class="fas fa-check mr-1"></i> Saved';
+                saveResultsButton.classList.add('opacity-70', 'cursor-not-allowed');
+
+            } else {
+                throw new Error(data.message || 'Failed to save results');
+            }
         } catch (error) {
-          console.error('Error:', error);
-          successMessageText.textContent = 'Feature disabled: database saving removed.';
-          successMessage.classList.remove('hidden');
+            console.error('Error saving results:', error);
+            successMessageText.textContent = 'There was an error saving your results: ' + error.message;
+            // Show error style in modal
+            showSuccessMessage('There was an error saving your results: ' + error.message, true);
+            // Re-enable button on error
+            saveResultsButton.disabled = false;
+            saveResultsButton.innerHTML = '<i class="fas fa-save mr-1"></i> Save Results';
+            saveResultsButton.classList.remove('opacity-70', 'cursor-not-allowed');
         }
       }
+
 
       function downloadResults() {
         const filename = `Career_Assessment_${new Date().toISOString().split('T')[0]}.txt`;
@@ -901,6 +984,34 @@ Do not include any text outside of this JSON object.`;
           clearTimeout(timeoutId);
         }
       }
+
+      // Ensure showSuccessMessage function exists and handles error state
+      function showSuccessMessage(message, isError = false) {
+          successMessageText.textContent = message;
+          const iconContainer = successMessage.querySelector('.flex.items-center.justify-center');
+          const titleElement = successMessage.querySelector('h3');
+
+          // Reset icon container classes
+          iconContainer.classList.remove('text-green-500', 'text-red-500');
+
+          if (isError) {
+              iconContainer.classList.add('text-red-500');
+              iconContainer.innerHTML = `
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>`;
+              titleElement.textContent = 'Error!';
+          } else {
+              iconContainer.classList.add('text-green-500');
+              iconContainer.innerHTML = `
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>`;
+              titleElement.textContent = 'Success!';
+          }
+          successMessage.classList.remove('hidden');
+      }
+
     </script>
   </div>
 </body>

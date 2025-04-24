@@ -11,10 +11,28 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
   exit;
 }
 
-// Get user information
+// Get user information including role
 $user_id = $_SESSION["id"];
 $fullname = $_SESSION["fullname"];
 $email = $_SESSION["email"];
+$user_role = $_SESSION["role"];
+
+// Handle clearing assessment results
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['clear_assessment'])) {
+    unset($_SESSION['assessment_results']);
+    header("Location: Jobsections.php");
+    exit;
+}
+
+// Get assessment results from session
+$assessmentResults = $_SESSION['assessment_results'] ?? null;
+$userSkills = $assessmentResults['skills'] ?? []; // Default to empty array
+$careerInterest = $assessmentResults['career_interest'] ?? ''; // Get interest too
+
+// Function to check if user has HR or Admin privileges
+function canPostJobs($role) {
+  return $role === 'hr' || $role === 'admin';
+}
 
 // Function to save job application
 function saveJobApplication($userId, $jobId, $jobTitle, $company, $status = 'Applied')
@@ -98,66 +116,109 @@ function getSavedJobBookmarks($userId)
   return $bookmarks;
 }
 
-// Function to get user posted jobs
-function getUserPostedJobs($userId = null)
-{
-  global $conn;
+// Function to get jobs with skill matching
+function getUserPostedJobs($userId = null, $userSkills = []) {
+    global $conn;
 
-  $jobs = array();
+    $jobs = array();
 
-  // Prepare a select statement
-  $sql = "SELECT id, user_id, title, company, logo, location, job_type, salary, description, skills,
+    // Prepare a select statement
+    $sql = "SELECT id, user_id, title, company, logo, location, job_type, salary, description, skills,
             created_at, expires_at, is_active FROM job_listings";
 
-  // If userId is provided, filter by user
-  if ($userId) {
-    $sql .= " WHERE user_id = ?";
-  }
+    $params = [];
+    $types = '';
 
-  $sql .= " ORDER BY created_at DESC";
-
-  if ($stmt = $conn->prepare($sql)) {
-    // Bind variables if filtering by user
+    // Build WHERE clause
+    $whereClauses = [];
     if ($userId) {
-      $stmt->bind_param("i", $userId);
+        $whereClauses[] = "user_id = ?";
+        $params[] = $userId;
+        $types .= 'i';
+    } else {
+        // Only show active and non-expired jobs in the general list
+        $whereClauses[] = "is_active = 1";
+        $whereClauses[] = "(expires_at IS NULL OR expires_at >= CURDATE())";
     }
 
-    // Execute the statement
-    $stmt->execute();
-
-    // Bind result variables
-    $result = $stmt->get_result();
-
-    // Fetch results
-    while ($row = $result->fetch_assoc()) {
-      // Convert skills from JSON to array
-      $row['skills'] = json_decode($row['skills'], true);
-
-      // Calculate days ago for posting date
-      $postedDate = new DateTime($row['created_at']);
-      $now = new DateTime();
-      $interval = $postedDate->diff($now);
-
-      if ($interval->days == 0) {
-        $row['posted'] = 'Today';
-      } elseif ($interval->days == 1) {
-        $row['posted'] = '1 day ago';
-      } else {
-        $row['posted'] = $interval->days . ' days ago';
-      }
-
-      // Add random applicants count for display purposes
-      $row['applicants'] = rand(5, 60);
-
-      $jobs[] = $row;
+    if (!empty($whereClauses)) {
+        $sql .= " WHERE " . implode(' AND ', $whereClauses);
     }
 
-    // Close statement
-    $stmt->close();
-  }
 
-  return $jobs;
+    $sql .= " ORDER BY created_at DESC"; // Initial sort
+
+    if ($stmt = $conn->prepare($sql)) {
+        // Bind parameters if any
+        if (!empty($params)) {
+            $stmt->bind_param($types, ...$params);
+        }
+
+        // Execute the statement
+        $stmt->execute();
+
+        // Get result
+        $result = $stmt->get_result();
+
+        // Fetch results
+        while ($row = $result->fetch_assoc()) {
+            // Convert skills from JSON to array, handle errors
+            $jobSkillsDecoded = json_decode($row['skills'], true);
+            $row['skills'] = is_array($jobSkillsDecoded) ? $jobSkillsDecoded : [];
+
+            // Calculate skill match score if user has skills and job has skills
+            if (!empty($userSkills) && !empty($row['skills'])) {
+                $jobSkillsLower = array_map('strtolower', $row['skills']);
+                $userSkillsLower = array_map('strtolower', $userSkills);
+                $matchedSkills = array_intersect($jobSkillsLower, $userSkillsLower);
+                // Score based on matched skills / total job skills
+                $row['match_score'] = count($matchedSkills) / count($row['skills']);
+                $row['matched_skills'] = array_values($matchedSkills); // Store matched skills (re-indexed)
+            } else {
+                $row['match_score'] = 0;
+                $row['matched_skills'] = [];
+            }
+
+            // Calculate days ago for posting date
+            $postedDate = new DateTime($row['created_at']);
+            $now = new DateTime();
+            $interval = $postedDate->diff($now);
+
+            if ($interval->days == 0) {
+                $row['posted'] = 'Today';
+            } elseif ($interval->days == 1) {
+                $row['posted'] = '1 day ago';
+            } else {
+                $row['posted'] = $interval->days . ' days ago';
+            }
+
+            // Add random applicants count for display purposes
+            $row['applicants'] = rand(5, 60);
+
+            $jobs[] = $row;
+        }
+
+        $stmt->close();
+    } else {
+        // Handle prepare error - log it
+        error_log("Error preparing statement for getUserPostedJobs: " . $conn->error);
+    }
+
+    // Sort by match score (descending) then by date (descending) if user has skills
+    if (!empty($userSkills)) {
+        usort($jobs, function($a, $b) {
+            if ($b['match_score'] == $a['match_score']) {
+                // If scores are equal, sort by creation date (newest first)
+                return strtotime($b['created_at']) - strtotime($a['created_at']);
+            }
+            // Otherwise, sort by match score (highest first)
+            return $b['match_score'] <=> $a['match_score']; // Use spaceship operator for float comparison
+        });
+    }
+
+    return $jobs;
 }
+
 
 // Create job applications table if it doesn't exist
 $sql = "CREATE TABLE IF NOT EXISTS job_applications (
@@ -168,8 +229,8 @@ $sql = "CREATE TABLE IF NOT EXISTS job_applications (
     company VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL,
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-)";
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)"; // Added ON DELETE CASCADE
 
 if ($conn->query($sql) !== TRUE) {
   die("Error creating job_applications table: " . $conn->error);
@@ -183,12 +244,17 @@ $sql = "CREATE TABLE IF NOT EXISTS job_bookmarks (
     job_title VARCHAR(255) NOT NULL,
     company VARCHAR(255) NOT NULL,
     saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-)";
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY user_job_bookmark (user_id, job_id)
+)"; // Added ON DELETE CASCADE and UNIQUE constraint
 
 if ($conn->query($sql) !== TRUE) {
-  die("Error creating job_bookmarks table: " . $conn->error);
+  // Ignore "duplicate key" error if table already exists with the constraint
+  if ($conn->errno != 1061) {
+      die("Error creating/altering job_bookmarks table: " . $conn->error);
+  }
 }
+
 
 // Create job listings table if it doesn't exist
 $sql = "CREATE TABLE IF NOT EXISTS job_listings (
@@ -196,17 +262,17 @@ $sql = "CREATE TABLE IF NOT EXISTS job_listings (
     user_id INT(11) NOT NULL,
     title VARCHAR(255) NOT NULL,
     company VARCHAR(255) NOT NULL,
-    logo VARCHAR(255) NOT NULL,
+    logo VARCHAR(255),
     location VARCHAR(100) NOT NULL,
     job_type VARCHAR(50) NOT NULL,
-    salary VARCHAR(100) NOT NULL,
+    salary VARCHAR(100),
     description TEXT NOT NULL,
-    skills TEXT NOT NULL,
+    skills TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at DATE,
     is_active TINYINT(1) DEFAULT 1,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-)";
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)"; // Added ON DELETE CASCADE, made logo/salary/skills nullable
 
 if ($conn->query($sql) !== TRUE) {
   die("Error creating job_listings table: " . $conn->error);
@@ -218,60 +284,89 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
 
   if ($_POST["action"] == "apply_job") {
     // Get data from POST request
-    $jobId = $_POST["jobId"];
-    $jobTitle = $_POST["jobTitle"];
-    $company = $_POST["company"];
+    $jobId = $_POST["jobId"] ?? null;
+    $jobTitle = $_POST["jobTitle"] ?? '';
+    $company = $_POST["company"] ?? '';
+
+    if (!$jobId || !$jobTitle || !$company) {
+        echo json_encode(["success" => false, "message" => "Missing job details."]);
+        exit;
+    }
 
     // Save job application
     $success = saveJobApplication($user_id, $jobId, $jobTitle, $company);
 
     // Return response
-    echo json_encode(array("success" => $success));
+    echo json_encode(["success" => $success, "message" => $success ? "Application submitted." : "Failed to submit application."]);
     exit;
   } elseif ($_POST["action"] == "save_job") {
     // Get data from POST request
-    $jobId = $_POST["jobId"];
-    $jobTitle = $_POST["jobTitle"];
-    $company = $_POST["company"];
+    $jobId = $_POST["jobId"] ?? null;
+    $jobTitle = $_POST["jobTitle"] ?? '';
+    $company = $_POST["company"] ?? '';
+
+     if (!$jobId || !$jobTitle || !$company) {
+        echo json_encode(["success" => false, "message" => "Missing job details."]);
+        exit;
+    }
 
     // Save job bookmark
     $success = saveJobBookmark($user_id, $jobId, $jobTitle, $company);
 
     // Return response
-    echo json_encode(array("success" => $success));
+    echo json_encode(["success" => $success, "message" => $success ? "Job saved." : "Failed to save job (maybe already saved?)."]);
     exit;
   } elseif ($_POST["action"] == "get_bookmarks") {
     // Get saved job bookmarks
     $bookmarks = getSavedJobBookmarks($user_id);
 
     // Return response
-    echo json_encode(array("bookmarks" => $bookmarks));
+    echo json_encode(["bookmarks" => $bookmarks]);
     exit;
   } elseif ($_POST["action"] == "post_job") {
-    // Get data from POST request
-    $title = $_POST["title"];
-    $company = $_POST["company"];
-    $location = $_POST["location"];
-    $jobType = $_POST["jobType"];
-    $salary = $_POST["salary"];
-    $description = $_POST["description"];
-    $skills = json_encode(explode(',', $_POST["skills"]));
-    $expiresAt = $_POST["expiresAt"];
+    // Check if the user has permission to post jobs
+    if (!canPostJobs($user_role)) {
+      echo json_encode(["success" => false, "message" => "Permission denied. Only HR or Admin can post jobs."]);
+      exit;
+    }
+
+    // Get data from POST request and validate
+    $title = trim($_POST["title"] ?? '');
+    $company = trim($_POST["company"] ?? '');
+    $location = trim($_POST["location"] ?? '');
+    $jobType = trim($_POST["jobType"] ?? '');
+    $salary = trim($_POST["salary"] ?? ''); // Salary is optional
+    $description = trim($_POST["description"] ?? '');
+    $skillsInput = trim($_POST["skills"] ?? '');
+    $expiresAt = trim($_POST["expiresAt"] ?? '');
+
+    // Basic validation
+    if (empty($title) || empty($company) || empty($location) || empty($jobType) || empty($description) || empty($expiresAt)) {
+         echo json_encode(["success" => false, "message" => "Please fill in all required fields."]);
+         exit;
+    }
+
+    // Process skills
+    $skillsArray = !empty($skillsInput) ? array_map('trim', explode(',', $skillsInput)) : [];
+    $skillsJson = json_encode($skillsArray);
+
 
     // Generate logo from company name
     $companyInitials = '';
     $words = explode(' ', $company);
-    foreach ($words as $word) {
-      if (!empty($word)) {
-        $companyInitials .= strtoupper(substr($word, 0, 1));
-      }
+    if (count($words) >= 2) {
+        $companyInitials = strtoupper(substr($words[0], 0, 1) . substr($words[1], 0, 1));
+    } elseif (!empty($words[0])) {
+        $companyInitials = strtoupper(substr($words[0], 0, 2));
+    } else {
+        $companyInitials = '??';
     }
 
     // Generate random background color for logo
     $colors = ['0D8ABC', '4C1D95', '065F46', '9D174D', '1E3A8A', '7C2D12', '5B21B6', '1E40AF'];
     $randomColor = $colors[array_rand($colors)];
 
-    $logo = "https://ui-avatars.com/api/?name=" . urlencode($companyInitials) . "&background=" . $randomColor . "&color=fff";
+    $logo = "https://ui-avatars.com/api/?name=" . urlencode($companyInitials) . "&background=" . $randomColor . "&color=fff&size=128";
 
     // Prepare an insert statement
     $sql = "INSERT INTO job_listings (user_id, title, company, logo, location, job_type, salary, description, skills, expires_at)
@@ -279,35 +374,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
 
     if ($stmt = $conn->prepare($sql)) {
       // Bind variables to the prepared statement as parameters
-      $stmt->bind_param("isssssssss", $user_id, $title, $company, $logo, $location, $jobType, $salary, $description, $skills, $expiresAt);
+      $stmt->bind_param("isssssssss", $user_id, $title, $company, $logo, $location, $jobType, $salary, $description, $skillsJson, $expiresAt);
 
       // Execute the statement
       $success = $stmt->execute();
 
-      // Get the ID of the newly inserted job
-      $jobId = $conn->insert_id;
+      if ($success) {
+          $jobId = $conn->insert_id;
+          echo json_encode(["success" => true, "jobId" => $jobId, "message" => "Job posted successfully."]);
+      } else {
+          error_log("Error executing post_job statement: " . $stmt->error);
+          echo json_encode(["success" => false, "message" => "Database error posting job."]);
+      }
 
       // Close statement
       $stmt->close();
-
-      // Return response
-      echo json_encode(array("success" => $success, "jobId" => $jobId));
       exit;
+    } else {
+        error_log("Error preparing post_job statement: " . $conn->error);
+        echo json_encode(["success" => false, "message" => "Error preparing job listing."]);
+        exit;
     }
-
-    echo json_encode(array("success" => false, "message" => "Error creating job listing"));
-    exit;
   }
 }
 
 // Get saved job bookmarks for display
 $savedJobBookmarks = getSavedJobBookmarks($user_id);
 
-// Get user posted jobs
-$userPostedJobs = getUserPostedJobs($user_id);
+// Get jobs with skill matching
+$userPostedJobs = getUserPostedJobs($user_id, $userSkills); // Pass skills for user's own jobs if needed for display
+$allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matching all jobs
 
-// Get all jobs
-$allJobs = getUserPostedJobs();
 ?>
 
 <!DOCTYPE html>
@@ -417,19 +514,21 @@ $allJobs = getUserPostedJobs();
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
               stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2z" />
             </svg>
             Jobs
           </a>
         </div>
       </div>
       <div class="flex items-center space-x-4">
+        <?php if (canPostJobs($user_role)): // Conditionally show Post Job button ?>
         <button id="post-job-button" class="btn btn-secondary hidden md:flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
           Post a Job
         </button>
+        <?php endif; ?>
         <button id="insights-button" class="btn btn-outline hidden md:block">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1 inline" fill="none" viewBox="0 0 24 24"
             stroke="currentColor">
@@ -456,6 +555,28 @@ $allJobs = getUserPostedJobs();
   </header>
 
   <main class="container mx-auto px-4 py-6">
+    <!-- Assessment-based recommendations section -->
+    <?php if (!empty($userSkills)): ?>
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-blue-200">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h2 class="text-lg font-bold text-primary flex items-center gap-2">
+            <i class="fas fa-star text-yellow-500"></i>
+            Personalized Job Recommendations
+          </h2>
+          <p class="text-sm text-gray-600 mt-1">
+            Based on your assessed skills: <strong class="font-medium"><?php echo htmlspecialchars(implode(', ', $userSkills)); ?></strong>
+          </p>
+        </div>
+        <form method="post" action="Jobsections.php" class="mt-2 sm:mt-0">
+          <button type="submit" name="clear_assessment" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50">
+            <i class="fas fa-times text-xs"></i> Clear recommendations
+          </button>
+        </form>
+      </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Search and Filters -->
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
       <div class="flex flex-col md:flex-row gap-4">
@@ -502,22 +623,27 @@ $allJobs = getUserPostedJobs();
           <?php foreach ($userPostedJobs as $job): ?>
             <div class="card p-4">
               <div class="flex items-start">
-                <img src="<?php echo htmlspecialchars($job['logo']); ?>" alt="<?php echo htmlspecialchars($job['company']); ?>" class="w-12 h-12 rounded mr-4">
+                <img src="<?php echo htmlspecialchars($job['logo'] ?? ''); ?>" alt="<?php echo htmlspecialchars($job['company']); ?>" class="w-12 h-12 rounded mr-4">
                 <div class="flex-1">
                   <div class="flex justify-between">
                     <h3 class="font-semibold text-lg"><?php echo htmlspecialchars($job['title']); ?></h3>
                     <div class="text-sm text-gray-500">Posted <?php echo htmlspecialchars($job['posted']); ?></div>
                   </div>
                   <div class="text-gray-600"><?php echo htmlspecialchars($job['company']); ?> · <?php echo htmlspecialchars($job['location']); ?></div>
-                  <div class="mt-2 text-gray-700"><?php echo htmlspecialchars($job['description']); ?></div>
+                  <div class="mt-2 text-gray-700 text-sm"><?php echo nl2br(htmlspecialchars(substr($job['description'], 0, 150))) . (strlen($job['description']) > 150 ? '...' : ''); ?></div>
                   <div class="mt-3 flex flex-wrap gap-2">
-                    <?php foreach ($job['skills'] as $skill): ?>
-                      <span class="badge badge-blue"><?php echo htmlspecialchars($skill); ?></span>
-                    <?php endforeach; ?>
+                    <?php if (!empty($job['skills'])): ?>
+                      <?php foreach ($job['skills'] as $skill): ?>
+                        <span class="badge badge-blue"><?php echo htmlspecialchars($skill); ?></span>
+                      <?php endforeach; ?>
+                    <?php endif; ?>
                   </div>
                   <div class="mt-4 flex items-center justify-between">
                     <div class="text-sm text-gray-500">
                       <span><?php echo htmlspecialchars($job['applicants']); ?> applicants</span>
+                      <?php if ($job['expires_at']): ?>
+                        <span class="ml-2">· Expires <?php echo date("M j, Y", strtotime($job['expires_at'])); ?></span>
+                      <?php endif; ?>
                     </div>
                     <div class="flex gap-2">
                       <button class="btn btn-outline text-sm py-1">Edit</button>
@@ -539,23 +665,28 @@ $allJobs = getUserPostedJobs();
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Main Content -->
       <div class="lg:col-span-2">
-        <h2 class="text-xl font-bold mb-4">Trending Jobs</h2>
+        <h2 class="text-xl font-bold mb-4">
+            <?php echo !empty($userSkills) ? 'All Job Listings' : 'Trending Jobs'; ?>
+        </h2>
 
         <!-- Job Listings -->
         <div id="job-listings" class="space-y-4">
           <?php if (empty($allJobs)): ?>
-            <div class="text-center py-8">
+            <div class="text-center py-8 bg-white rounded-lg border border-dashed border-gray-300">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <h3 class="text-lg font-medium text-gray-900">No jobs found</h3>
-              <p class="text-gray-500 mt-2">Be the first to post a job!</p>
+              <p class="text-gray-500 mt-2">Try adjusting your search filters or check back later.</p>
+              <?php if (canPostJobs($user_role)): ?>
+                 <button id="post-job-link" class="mt-4 text-primary hover:underline">Be the first to post a job!</button>
+              <?php endif; ?>
             </div>
           <?php else: ?>
             <?php foreach ($allJobs as $job): ?>
               <div class="card p-4">
                 <div class="flex items-start">
-                  <img src="<?php echo htmlspecialchars($job['logo']); ?>" alt="<?php echo htmlspecialchars($job['company']); ?>" class="w-12 h-12 rounded mr-4">
+                  <img src="<?php echo htmlspecialchars($job['logo'] ?? ''); ?>" alt="<?php echo htmlspecialchars($job['company']); ?>" class="w-12 h-12 rounded mr-4 object-contain border border-gray-100">
                   <div class="flex-1">
                     <div class="flex justify-between">
                       <h3 class="font-semibold text-lg"><?php echo htmlspecialchars($job['title']); ?></h3>
@@ -570,13 +701,49 @@ $allJobs = getUserPostedJobs();
                         </svg>
                       </button>
                     </div>
-                    <div class="text-gray-600"><?php echo htmlspecialchars($job['company']); ?> · <?php echo htmlspecialchars($job['location']); ?></div>
-                    <div class="mt-2 text-gray-700"><?php echo htmlspecialchars($job['description']); ?></div>
+                    <div class="text-gray-600 text-sm"><?php echo htmlspecialchars($job['company']); ?> · <?php echo htmlspecialchars($job['location']); ?></div>
+                    <div class="mt-2 text-gray-700 text-sm"><?php echo nl2br(htmlspecialchars(substr($job['description'], 0, 150))) . (strlen($job['description']) > 150 ? '...' : ''); ?></div>
+
+                    <!-- Skills Badges -->
                     <div class="mt-3 flex flex-wrap gap-2">
-                      <?php foreach ($job['skills'] as $skill): ?>
-                        <span class="badge badge-blue"><?php echo htmlspecialchars($skill); ?></span>
-                      <?php endforeach; ?>
+                      <?php if (!empty($job['skills'])): ?>
+                        <?php
+                          $userSkillsLower = array_map('strtolower', $userSkills); // Lowercase user skills once
+                        ?>
+                        <?php foreach ($job['skills'] as $skill): ?>
+                          <?php
+                            $skillLower = strtolower($skill);
+                            $isMatched = !empty($userSkills) && in_array($skillLower, $userSkillsLower);
+                          ?>
+                          <span class="badge <?php echo $isMatched ? 'badge-green' : 'badge-blue'; ?>">
+                            <?php echo htmlspecialchars($skill); ?>
+                            <?php if ($isMatched): ?>
+                              <i class="fas fa-check ml-1 text-green-700 text-xs"></i>
+                            <?php endif; ?>
+                          </span>
+                        <?php endforeach; ?>
+                      <?php endif; ?>
                     </div>
+                    <!-- End Skills Badges -->
+
+                    <!-- Match Score Display -->
+                    <?php if (!empty($userSkills) && isset($job['match_score']) && $job['match_score'] > 0): ?>
+                    <div class="mt-3 pt-2 border-t border-gray-100">
+                      <div class="flex justify-between items-center text-xs text-gray-500 mb-1">
+                        <span class="font-medium text-blue-700">Match: <?php echo round($job['match_score'] * 100) ?>%</span>
+                        <?php if (!empty($job['matched_skills'])): ?>
+                          <span class="truncate" title="Matching skills: <?php echo htmlspecialchars(implode(', ', $job['matched_skills'])); ?>">
+                            Matching: <?php echo htmlspecialchars(implode(', ', array_slice($job['matched_skills'], 0, 3))) . (count($job['matched_skills']) > 3 ? '...' : ''); ?>
+                          </span>
+                        <?php endif; ?>
+                      </div>
+                      <div class="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                        <div class="bg-blue-600 h-1.5 rounded-full" style="width: <?php echo round($job['match_score'] * 100) ?>%"></div>
+                      </div>
+                    </div>
+                    <?php endif; ?>
+                    <!-- End Match Score Display -->
+
                     <div class="mt-4 flex items-center justify-between">
                       <div class="text-sm text-gray-500">
                         <span><?php echo htmlspecialchars($job['posted']); ?></span> · <span><?php echo htmlspecialchars($job['applicants']); ?> applicants</span>
@@ -600,7 +767,7 @@ $allJobs = getUserPostedJobs();
         </div>
 
         <!-- Loading More -->
-        <?php if (count($allJobs) > 5): ?>
+        <?php if (count($allJobs) > 5): // Adjust this number based on initial load count ?>
           <div class="text-center mt-8">
             <button id="load-more" class="btn btn-outline">Load More Jobs</button>
           </div>
@@ -680,18 +847,18 @@ $allJobs = getUserPostedJobs();
 
       <form id="post-job-form" class="space-y-4">
         <div>
-          <label for="job-title" class="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+          <label for="job-title" class="block text-sm font-medium text-gray-700 mb-1">Job Title <span class="text-red-500">*</span></label>
           <input type="text" id="job-title" name="job-title" class="input" required>
         </div>
 
         <div>
-          <label for="company-name" class="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+          <label for="company-name" class="block text-sm font-medium text-gray-700 mb-1">Company Name <span class="text-red-500">*</span></label>
           <input type="text" id="company-name" name="company-name" class="input" required>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label for="job-location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+            <label for="job-location" class="block text-sm font-medium text-gray-700 mb-1">Location <span class="text-red-500">*</span></label>
             <select id="job-location" name="job-location" class="input" required>
               <option value="">Select Location</option>
               <option value="remote">Remote</option>
@@ -699,12 +866,12 @@ $allJobs = getUserPostedJobs();
               <option value="san-francisco">San Francisco</option>
               <option value="london">London</option>
               <option value="berlin">Berlin</option>
-              <option value="other">Other</option>
+              <option value="other">Other (Specify in description)</option>
             </select>
           </div>
 
           <div>
-            <label for="job-type" class="block text-sm font-medium text-gray-700 mb-1">Job Type</label>
+            <label for="job-type" class="block text-sm font-medium text-gray-700 mb-1">Job Type <span class="text-red-500">*</span></label>
             <select id="job-type" name="job-type" class="input" required>
               <option value="">Select Job Type</option>
               <option value="full-time">Full-time</option>
@@ -716,27 +883,27 @@ $allJobs = getUserPostedJobs();
         </div>
 
         <div>
-          <label for="salary-range" class="block text-sm font-medium text-gray-700 mb-1">Salary Range</label>
-          <input type="text" id="salary-range" name="salary-range" class="input" placeholder="e.g., $80,000 - $100,000" required>
+          <label for="salary-range" class="block text-sm font-medium text-gray-700 mb-1">Salary Range (Optional)</label>
+          <input type="text" id="salary-range" name="salary-range" class="input" placeholder="e.g., $80,000 - $100,000">
         </div>
 
         <div>
-          <label for="job-description" class="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
+          <label for="job-description" class="block text-sm font-medium text-gray-700 mb-1">Job Description <span class="text-red-500">*</span></label>
           <textarea id="job-description" name="job-description" rows="5" class="input" required></textarea>
         </div>
 
         <div>
           <label for="required-skills" class="block text-sm font-medium text-gray-700 mb-1">Required Skills (comma separated)</label>
-          <input type="text" id="required-skills" name="required-skills" class="input" placeholder="e.g., JavaScript, React, Node.js" required>
+          <input type="text" id="required-skills" name="required-skills" class="input" placeholder="e.g., JavaScript, React, Node.js">
         </div>
 
         <div>
-          <label for="expires-at" class="block text-sm font-medium text-gray-700 mb-1">Listing Expires</label>
+          <label for="expires-at" class="block text-sm font-medium text-gray-700 mb-1">Listing Expires <span class="text-red-500">*</span></label>
           <input type="date" id="expires-at" name="expires-at" class="input" required>
         </div>
 
         <div class="pt-4">
-          <button type="submit" class="btn btn-primary w-full">Post Job</button>
+          <button type="submit" id="submit-post-job" class="btn btn-primary w-full">Post Job</button>
         </div>
       </form>
     </div>
@@ -775,78 +942,37 @@ $allJobs = getUserPostedJobs();
     </div>
   </div>
 
-  <!-- Success Message -->
-  <div id="success-message" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+  <!-- Success/Error Message Modal -->
+  <div id="message-modal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
     <div class="absolute inset-0 bg-black opacity-50"></div>
     <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 z-10">
-      <div class="flex items-center justify-center text-green-500 mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+      <div class="flex items-center justify-center mb-4">
+        <svg id="message-icon" xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <!-- Icon will be set by JS -->
         </svg>
       </div>
-      <h3 class="text-xl font-bold text-center mb-2">Success!</h3>
-      <p class="text-gray-600 text-center mb-6" id="success-message-text">Your action was completed successfully.</p>
+      <h3 id="message-title" class="text-xl font-bold text-center mb-2"></h3>
+      <p class="text-gray-600 text-center mb-6" id="message-text"></p>
       <div class="flex justify-center">
-        <button id="close-success" class="btn btn-primary">Close</button>
+        <button id="close-message" class="btn btn-primary">Close</button>
       </div>
     </div>
   </div>
+
 
   <script>
     // State management
     const state = {
       jobs: <?php echo json_encode($allJobs); ?>,
       filteredJobs: <?php echo json_encode($allJobs); ?>,
-      suggestedJobs: [],
-      trendingSkills: [{
-          name: 'React',
-          count: 1243,
-          class: 'badge-blue'
-        },
-        {
-          name: 'Python',
-          count: 982,
-          class: 'badge-green'
-        },
-        {
-          name: 'Machine Learning',
-          count: 876,
-          class: 'badge-purple'
-        },
-        {
-          name: 'AWS',
-          count: 754,
-          class: 'badge-orange'
-        },
-        {
-          name: 'TypeScript',
-          count: 621,
-          class: 'badge-blue'
-        },
-        {
-          name: 'Docker',
-          count: 543,
-          class: 'badge-green'
-        },
-        {
-          name: 'Node.js',
-          count: 498,
-          class: 'badge-purple'
-        },
-        {
-          name: 'SQL',
-          count: 432,
-          class: 'badge-orange'
-        }
-      ],
-      filters: {
-        search: '',
-        location: '',
-        jobType: ''
-      },
+      suggestedJobs: [], // Placeholder for suggested jobs logic
+      trendingSkills: [{ name: 'React', count: 1243, class: 'badge-blue' }, { name: 'Python', count: 982, class: 'badge-green' }, { name: 'Machine Learning', count: 876, class: 'badge-purple' }, { name: 'AWS', count: 754, class: 'badge-orange' }, { name: 'TypeScript', count: 621, class: 'badge-blue' }, { name: 'Docker', count: 543, class: 'badge-green' }, { name: 'Node.js', count: 498, class: 'badge-purple' }, { name: 'SQL', count: 432, class: 'badge-orange' }],
+      filters: { search: '', location: '', jobType: '' },
       isLoading: false,
-      page: 1,
+      page: 1, // For potential pagination
+      itemsPerPage: 10, // Number of items per page
       savedJobs: <?php echo json_encode($savedJobBookmarks); ?>,
+      userRole: "<?php echo $user_role; ?>",
       userId: <?php echo $user_id; ?>,
       userName: "<?php echo htmlspecialchars($fullname); ?>"
     };
@@ -857,21 +983,42 @@ $allJobs = getUserPostedJobs();
     const jobTypeFilter = document.getElementById('job-type-filter');
     const filterTags = document.getElementById('filter-tags');
     const loadMoreButton = document.getElementById('load-more');
+    const jobListingsContainer = document.getElementById('job-listings');
 
     const postJobButton = document.getElementById('post-job-button');
     const postJobModal = document.getElementById('post-job-modal');
     const closePostJobButton = document.getElementById('close-post-job');
     const postJobForm = document.getElementById('post-job-form');
+    const submitPostJobButton = document.getElementById('submit-post-job');
+    const postJobLink = document.getElementById('post-job-link'); // Link in empty state
 
     const insightsButton = document.getElementById('insights-button');
     const insightsModal = document.getElementById('insights-modal');
     const closeInsightsButton = document.getElementById('close-insights');
 
-    const successMessage = document.getElementById('success-message');
-    const successMessageText = document.getElementById('success-message-text');
-    const closeSuccessButton = document.getElementById('close-success');
+    const messageModal = document.getElementById('message-modal');
+    const messageIcon = document.getElementById('message-icon');
+    const messageTitle = document.getElementById('message-title');
+    const messageText = document.getElementById('message-text');
+    const closeMessageButton = document.getElementById('close-message');
 
-    // Event Listeners
+    // --- Utility Functions ---
+    function showMessage(title, text, isError = false) {
+        messageTitle.textContent = title;
+        messageText.textContent = text;
+        messageIcon.classList.remove('text-green-500', 'text-red-500');
+
+        if (isError) {
+            messageIcon.classList.add('text-red-500');
+            messageIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+        } else {
+            messageIcon.classList.add('text-green-500');
+            messageIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
+        }
+        messageModal.classList.remove('hidden');
+    }
+
+    // --- Event Listeners ---
     searchInput.addEventListener('input', (e) => {
       state.filters.search = e.target.value.trim().toLowerCase();
       applyFilters();
@@ -891,18 +1038,32 @@ $allJobs = getUserPostedJobs();
 
     loadMoreButton?.addEventListener('click', () => {
       state.page++;
-      renderJobs();
+      renderJobs(true); // Append jobs
     });
 
-    postJobButton.addEventListener('click', () => {
-      postJobModal.classList.remove('hidden');
+    // Open Post Job Modal
+    function openPostJobModal() {
+        postJobModal.classList.remove('hidden');
+        postJobForm.reset(); // Clear form on open
 
-      // Set default expiration date to 30 days from now
-      const expiresAtInput = document.getElementById('expires-at');
-      const thirtyDaysFromNow = new Date();
-      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-      expiresAtInput.value = thirtyDaysFromNow.toISOString().split('T')[0];
-    });
+        // Set default expiration date to 30 days from now
+        const expiresAtInput = document.getElementById('expires-at');
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+        expiresAtInput.value = thirtyDaysFromNow.toISOString().split('T')[0];
+        expiresAtInput.min = new Date().toISOString().split('T')[0]; // Prevent past dates
+    }
+
+    if (postJobButton) {
+        postJobButton.addEventListener('click', openPostJobModal);
+    }
+    if (postJobLink) { // Listener for the link in empty state
+        postJobLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            openPostJobModal();
+        });
+    }
+
 
     closePostJobButton.addEventListener('click', () => {
       postJobModal.classList.add('hidden');
@@ -910,57 +1071,35 @@ $allJobs = getUserPostedJobs();
 
     postJobForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      submitPostJobButton.disabled = true;
+      submitPostJobButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Posting...';
 
       try {
-        // Get form data
-        const title = document.getElementById('job-title').value;
-        const company = document.getElementById('company-name').value;
-        const location = document.getElementById('job-location').value;
-        const jobType = document.getElementById('job-type').value;
-        const salary = document.getElementById('salary-range').value;
-        const description = document.getElementById('job-description').value;
-        const skills = document.getElementById('required-skills').value;
-        const expiresAt = document.getElementById('expires-at').value;
-
-        // Prepare data for saving
-        const data = new FormData();
-        data.append('action', 'post_job');
-        data.append('title', title);
-        data.append('company', company);
-        data.append('location', location);
-        data.append('jobType', jobType);
-        data.append('salary', salary);
-        data.append('description', description);
-        data.append('skills', skills);
-        data.append('expiresAt', expiresAt);
+        const formData = new FormData(postJobForm);
+        formData.append('action', 'post_job');
 
         // Send data to server
         const response = await fetch('Jobsections.php', {
           method: 'POST',
-          body: data
+          body: formData // Use FormData directly
         });
 
         const result = await response.json();
 
         if (result.success) {
-          // Close modal
           postJobModal.classList.add('hidden');
-
-          // Show success message
-          successMessageText.textContent = 'Your job has been posted successfully.';
-          successMessage.classList.remove('hidden');
-
-          // Reload page to show new job
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+          showMessage('Success!', result.message || 'Your job has been posted successfully.');
+          // Optionally reload or add job dynamically
+          setTimeout(() => { window.location.reload(); }, 2000);
         } else {
           throw new Error(result.message || 'Failed to post job');
         }
       } catch (error) {
         console.error('Error posting job:', error);
-        successMessageText.textContent = 'There was an error posting your job. Please try again.';
-        successMessage.classList.remove('hidden');
+        showMessage('Error!', error.message || 'There was an error posting your job.', true);
+      } finally {
+          submitPostJobButton.disabled = false;
+          submitPostJobButton.innerHTML = 'Post Job';
       }
     });
 
@@ -972,109 +1111,134 @@ $allJobs = getUserPostedJobs();
       insightsModal.classList.add('hidden');
     });
 
-    closeSuccessButton.addEventListener('click', () => {
-      successMessage.classList.add('hidden');
+    closeMessageButton.addEventListener('click', () => {
+      messageModal.classList.add('hidden');
     });
 
-    // Add event listeners to save job buttons
-    document.querySelectorAll('.save-job-btn').forEach(button => {
-      button.addEventListener('click', async (e) => {
-        const jobId = parseInt(e.currentTarget.dataset.id);
-        const jobTitle = e.currentTarget.dataset.title;
-        const company = e.currentTarget.dataset.company;
+    // Add event listeners to dynamically added buttons (using event delegation)
+    jobListingsContainer.addEventListener('click', async (e) => {
+        const saveButton = e.target.closest('.save-job-btn');
+        const applyButton = e.target.closest('.easy-apply-btn, .apply-now-btn');
 
-        try {
-          // Prepare data for saving
-          const data = new FormData();
-          data.append('action', 'save_job');
-          data.append('jobId', jobId);
-          data.append('jobTitle', jobTitle);
-          data.append('company', company);
+        if (saveButton) {
+            const jobId = parseInt(saveButton.dataset.id);
+            const jobTitle = saveButton.dataset.title;
+            const company = saveButton.dataset.company;
+            const svgIcon = saveButton.querySelector('svg');
 
-          // Send data to server
-          const response = await fetch('Jobsections.php', {
-            method: 'POST',
-            body: data
-          });
+            // Prevent double clicks
+            if (saveButton.disabled) return;
+            saveButton.disabled = true;
+            svgIcon.classList.add('animate-pulse');
 
-          const result = await response.json();
+            try {
+                const data = new FormData();
+                data.append('action', 'save_job');
+                data.append('jobId', jobId);
+                data.append('jobTitle', jobTitle);
+                data.append('company', company);
 
-          if (result.success) {
-            // Update state
-            if (!state.savedJobs.includes(jobId)) {
-              state.savedJobs.push(jobId);
+                const response = await fetch('Jobsections.php', { method: 'POST', body: data });
+                const result = await response.json();
+
+                if (result.success) {
+                    if (!state.savedJobs.includes(jobId)) { state.savedJobs.push(jobId); }
+                    svgIcon.setAttribute('fill', 'currentColor');
+                    showMessage('Success!', result.message || 'Job saved to your bookmarks.');
+                } else {
+                    // Maybe it was already saved, still show success visually
+                    if (result.message && result.message.includes('already saved')) {
+                         svgIcon.setAttribute('fill', 'currentColor');
+                         showMessage('Info', 'This job is already in your bookmarks.');
+                    } else {
+                        throw new Error(result.message || 'Failed to save job');
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving job:', error);
+                showMessage('Error!', error.message || 'Could not save job.', true);
+            } finally {
+                saveButton.disabled = false;
+                svgIcon.classList.remove('animate-pulse');
             }
-
-            // Update the button appearance
-            e.currentTarget.querySelector('svg').setAttribute('fill', 'currentColor');
-
-            // Show success message
-            successMessageText.textContent = 'Job saved to your bookmarks.';
-            successMessage.classList.remove('hidden');
-          } else {
-            throw new Error('Failed to save job');
-          }
-        } catch (error) {
-          console.error('Error saving job:', error);
-          successMessageText.textContent = 'There was an error saving this job. Please try again.';
-          successMessage.classList.remove('hidden');
         }
-      });
+
+        if (applyButton) {
+            const jobId = parseInt(applyButton.dataset.id);
+            const jobTitle = applyButton.dataset.title;
+            const company = applyButton.dataset.company;
+
+            // Prevent double clicks
+            if (applyButton.disabled) return;
+            applyButton.disabled = true;
+            const originalText = applyButton.innerHTML;
+            applyButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+
+            try {
+                const data = new FormData();
+                data.append('action', 'apply_job');
+                data.append('jobId', jobId);
+                data.append('jobTitle', jobTitle);
+                data.append('company', company);
+
+                const response = await fetch('Jobsections.php', { method: 'POST', body: data });
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('Success!', result.message || 'Your application has been submitted.');
+                    // Optionally disable button permanently or change text
+                    applyButton.textContent = 'Applied';
+                    applyButton.classList.add('opacity-70', 'cursor-not-allowed');
+                    // Disable both apply buttons for this job card
+                    const card = applyButton.closest('.card');
+                    card.querySelectorAll('.easy-apply-btn, .apply-now-btn').forEach(btn => {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-70', 'cursor-not-allowed');
+                    });
+
+                } else {
+                    throw new Error(result.message || 'Failed to submit application');
+                }
+            } catch (error) {
+                console.error('Error applying for job:', error);
+                showMessage('Error!', error.message || 'Could not submit application.', true);
+                applyButton.disabled = false; // Re-enable on error
+                applyButton.innerHTML = originalText;
+            }
+            // Note: Button remains disabled on success in this logic
+        }
     });
 
-    // Add event listeners to apply buttons
-    document.querySelectorAll('.easy-apply-btn, .apply-now-btn').forEach(button => {
-      button.addEventListener('click', async (e) => {
-        const jobId = parseInt(e.currentTarget.dataset.id);
-        const jobTitle = e.currentTarget.dataset.title;
-        const company = e.currentTarget.dataset.company;
 
-        try {
-          // Prepare data for saving
-          const data = new FormData();
-          data.append('action', 'apply_job');
-          data.append('jobId', jobId);
-          data.append('jobTitle', jobTitle);
-          data.append('company', company);
-
-          // Send data to server
-          const response = await fetch('Jobsections.php', {
-            method: 'POST',
-            body: data
-          });
-
-          const result = await response.json();
-
-          if (result.success) {
-            // Show success message
-            successMessageText.textContent = 'Your application has been submitted successfully.';
-            successMessage.classList.remove('hidden');
-          } else {
-            throw new Error('Failed to submit application');
-          }
-        } catch (error) {
-          console.error('Error applying for job:', error);
-          successMessageText.textContent = 'There was an error submitting your application. Please try again.';
-          successMessage.classList.remove('hidden');
-        }
-      });
-    });
-
-    // Functions
+    // --- Rendering Functions ---
     function applyFilters() {
       state.filteredJobs = state.jobs.filter(job => {
-        // Search filter
-        if (state.filters.search && !jobMatchesSearch(job, state.filters.search)) {
-          return false;
+        // Search filter (Title, Company, Description, Skills)
+        if (state.filters.search) {
+            const searchTerm = state.filters.search;
+            const skillsMatch = job.skills && Array.isArray(job.skills) ? job.skills.some(skill => skill.toLowerCase().includes(searchTerm)) : false;
+            if (!(
+                job.title.toLowerCase().includes(searchTerm) ||
+                job.company.toLowerCase().includes(searchTerm) ||
+                job.description.toLowerCase().includes(searchTerm) ||
+                skillsMatch
+            )) {
+                return false;
+            }
         }
 
-        // Location filter
-        if (state.filters.location && job.location.toLowerCase() !== state.filters.location.replace('-', ' ')) {
+        // Location filter (Handle 'remote' specifically)
+        if (state.filters.location && state.filters.location !== 'remote' && job.location.toLowerCase() !== state.filters.location.replace('-', ' ')) {
           return false;
         }
+        if (state.filters.location === 'remote' && job.location.toLowerCase() !== 'remote') {
+            return false;
+        }
+
 
         // Job type filter
-        if (state.filters.jobType && job.job_type !== state.filters.jobType) {
+        if (state.filters.jobType && job.job_type.toLowerCase() !== state.filters.jobType.toLowerCase()) {
           return false;
         }
 
@@ -1085,18 +1249,123 @@ $allJobs = getUserPostedJobs();
       state.page = 1;
 
       // Render filtered jobs
-      renderJobs();
+      renderJobs(); // Render first page
     }
 
-    function jobMatchesSearch(job, searchTerm) {
-      searchTerm = searchTerm.toLowerCase();
-      return (
-        job.title.toLowerCase().includes(searchTerm) ||
-        job.company.toLowerCase().includes(searchTerm) ||
-        job.description.toLowerCase().includes(searchTerm) ||
-        (job.skills && job.skills.some(skill => skill.toLowerCase().includes(searchTerm)))
-      );
+    function renderJobs(append = false) {
+        const startIndex = (state.page - 1) * state.itemsPerPage;
+        const endIndex = startIndex + state.itemsPerPage;
+        const jobsToRender = state.filteredJobs.slice(startIndex, endIndex);
+
+        if (!append) {
+            jobListingsContainer.innerHTML = ''; // Clear previous listings only if not appending
+        }
+
+        if (state.filteredJobs.length === 0 && !append) {
+            jobListingsContainer.innerHTML = `
+                <div class="text-center py-8 bg-white rounded-lg border border-dashed border-gray-300">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 class="text-lg font-medium text-gray-900">No jobs match your filters</h3>
+                  <p class="text-gray-500 mt-2">Try adjusting your search or filters.</p>
+                </div>`;
+        } else {
+            jobsToRender.forEach(job => {
+                const jobElement = createJobCard(job);
+                jobListingsContainer.appendChild(jobElement);
+            });
+        }
+
+        // Show/hide load more button
+        if (loadMoreButton) {
+            if (endIndex >= state.filteredJobs.length) {
+                loadMoreButton.classList.add('hidden');
+            } else {
+                loadMoreButton.classList.remove('hidden');
+            }
+        }
     }
+
+    function createJobCard(job) {
+        const div = document.createElement('div');
+        div.className = 'card p-4';
+
+        const isSaved = state.savedJobs.includes(job.id);
+        const userSkillsLower = <?php echo json_encode(array_map('strtolower', $userSkills)); ?>; // Get lowercase user skills
+
+        let skillsHtml = '';
+        if (job.skills && Array.isArray(job.skills)) {
+            skillsHtml = job.skills.map(skill => {
+                const skillLower = skill.toLowerCase();
+                const isMatched = userSkillsLower.length > 0 && userSkillsLower.includes(skillLower);
+                const badgeClass = isMatched ? 'badge-green' : 'badge-blue';
+                const iconHtml = isMatched ? '<i class="fas fa-check ml-1 text-green-700 text-xs"></i>' : '';
+                return `<span class="badge ${badgeClass}">${htmlspecialchars(skill)}${iconHtml}</span>`;
+            }).join('');
+        }
+
+        let matchScoreHtml = '';
+        if (userSkillsLower.length > 0 && job.match_score > 0) {
+            const matchedSkillsText = job.matched_skills && job.matched_skills.length > 0
+                ? `Matching: ${htmlspecialchars(job.matched_skills.slice(0, 3).join(', '))}${job.matched_skills.length > 3 ? '...' : ''}`
+                : '';
+            matchScoreHtml = `
+                <div class="mt-3 pt-2 border-t border-gray-100">
+                  <div class="flex justify-between items-center text-xs text-gray-500 mb-1">
+                    <span class="font-medium text-blue-700">Match: ${Math.round(job.match_score * 100)}%</span>
+                    ${matchedSkillsText ? `<span class="truncate" title="Matching skills: ${htmlspecialchars(job.matched_skills.join(', '))}">${matchedSkillsText}</span>` : ''}
+                  </div>
+                  <div class="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${Math.round(job.match_score * 100)}%"></div>
+                  </div>
+                </div>`;
+        }
+
+
+        div.innerHTML = `
+            <div class="flex items-start">
+              <img src="${htmlspecialchars(job.logo || '')}" alt="${htmlspecialchars(job.company)}" class="w-12 h-12 rounded mr-4 object-contain border border-gray-100">
+              <div class="flex-1">
+                <div class="flex justify-between">
+                  <h3 class="font-semibold text-lg">${htmlspecialchars(job.title)}</h3>
+                  <button class="save-job-btn text-gray-400 hover:text-primary"
+                    data-id="${job.id}"
+                    data-title="${htmlspecialchars(job.title)}"
+                    data-company="${htmlspecialchars(job.company)}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5"
+                      fill="${isSaved ? 'currentColor' : 'none'}"
+                      viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                  </button>
+                </div>
+                <div class="text-gray-600 text-sm">${htmlspecialchars(job.company)} · ${htmlspecialchars(job.location)}</div>
+                <div class="mt-2 text-gray-700 text-sm">${nl2br(htmlspecialchars(job.description.substring(0, 150)))}${job.description.length > 150 ? '...' : ''}</div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  ${skillsHtml}
+                </div>
+                ${matchScoreHtml}
+                <div class="mt-4 flex items-center justify-between">
+                  <div class="text-sm text-gray-500">
+                    <span>${htmlspecialchars(job.posted)}</span> · <span>${htmlspecialchars(job.applicants)} applicants</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <button class="easy-apply-btn btn btn-outline text-sm py-1"
+                      data-id="${job.id}"
+                      data-title="${htmlspecialchars(job.title)}"
+                      data-company="${htmlspecialchars(job.company)}">Easy Apply</button>
+                    <button class="apply-now-btn btn btn-secondary text-sm py-1"
+                      data-id="${job.id}"
+                      data-title="${htmlspecialchars(job.title)}"
+                      data-company="${htmlspecialchars(job.company)}">Apply Now</button>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+        return div;
+    }
+
 
     function updateFilterTags() {
       filterTags.innerHTML = '';
@@ -1127,7 +1396,7 @@ $allJobs = getUserPostedJobs();
         ${text}
         <button type="button" class="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full text-blue-400 hover:text-blue-500 focus:outline-none">
           <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293-4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
           </svg>
         </button>
       `;
@@ -1135,6 +1404,24 @@ $allJobs = getUserPostedJobs();
       tag.querySelector('button').addEventListener('click', removeCallback);
       filterTags.appendChild(tag);
     }
+
+    // --- Utility for HTML escaping in JS ---
+    function htmlspecialchars(str) {
+        if (typeof str !== 'string') return '';
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return str.replace(/[&<>"']/g, m => map[m]);
+    }
+    function nl2br(str) {
+        return str.replace(/\r\n|\r|\n/g, '<br>');
+    }
+
+
+    // --- Initial Render ---
+    document.addEventListener('DOMContentLoaded', () => {
+        renderJobs(); // Render initial page load
+        updateFilterTags(); // Render initial filter tags if any filters are pre-selected
+    });
+
 
     // Close modals when clicking outside
     window.addEventListener('click', (e) => {
@@ -1144,8 +1431,8 @@ $allJobs = getUserPostedJobs();
       if (e.target === insightsModal) {
         insightsModal.classList.add('hidden');
       }
-      if (e.target === successMessage) {
-        successMessage.classList.add('hidden');
+      if (e.target === messageModal) {
+        messageModal.classList.add('hidden');
       }
     });
   </script>
