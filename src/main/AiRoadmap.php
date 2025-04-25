@@ -15,6 +15,71 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
 $user_id = $_SESSION["id"];
 $fullname = $_SESSION["fullname"];
 $email = $_SESSION["email"];
+
+// Handle AJAX request to save roadmap
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_roadmap'])) {
+    header('Content-Type: application/json'); // Ensure JSON response
+
+    // Get data from POST
+    $career_goal = isset($_POST['career_goal']) ? $_POST['career_goal'] : '';
+    $roadmap_data = isset($_POST['roadmap_data']) ? $_POST['roadmap_data'] : '';
+
+    if (empty($career_goal) || empty($roadmap_data)) {
+        echo json_encode(['success' => false, 'message' => 'Missing required data']);
+        exit;
+    }
+
+    // Create career_roadmaps table if it doesn't exist
+    $sql = "CREATE TABLE IF NOT EXISTS career_roadmaps (
+        id INT(11) AUTO_INCREMENT PRIMARY KEY,
+        user_id INT(11) NOT NULL,
+        career_goal VARCHAR(255) NOT NULL,
+        roadmap_data TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )";
+
+    if ($conn->query($sql) !== TRUE) {
+        echo json_encode(['success' => false, 'message' => 'Error creating roadmap history table']);
+        exit;
+    }
+
+    // Insert into database
+    $sql = "INSERT INTO career_roadmaps (user_id, career_goal, roadmap_data) VALUES (?, ?, ?)";
+    if ($stmt = $conn->prepare($sql)) {
+        $stmt->bind_param("iss", $user_id, $career_goal, $roadmap_data);
+        $success = $stmt->execute();
+        $stmt->close();
+
+        if (!$success) {
+            echo json_encode(['success' => false, 'message' => 'Error saving roadmap to history']);
+            exit;
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Roadmap saved successfully']);
+        exit;
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Database error']);
+        exit;
+    }
+}
+
+// Fetch roadmap history from database
+$roadmapHistory = [];
+$sql = "SELECT id, career_goal, roadmap_data, created_at FROM career_roadmaps
+        WHERE user_id = ? ORDER BY created_at DESC LIMIT 10";
+
+if ($stmt = $conn->prepare($sql)) {
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $roadmapHistory[] = $row;
+    }
+
+    $stmt->close();
+}
 ?>
 
 <!DOCTYPE html>
@@ -96,7 +161,7 @@ $email = $_SESSION["email"];
             <a href="../auth/profile.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
             <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
             <div class="border-t border-gray-100"></div>
-            <a href="../auth//logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+            <a href="../auth/logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
               <i class="fas fa-sign-out-alt mr-1"></i> Logout
             </a>
           </div>
@@ -160,6 +225,47 @@ $email = $_SESSION["email"];
       </div>
     </div>
 
+    <!-- Roadmap History Section -->
+    <div class="card mb-8">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">Roadmap History</h2>
+          <button id="toggle-roadmap-history" class="text-sm text-primary hover:text-blue-700 flex items-center">
+            <span id="toggle-history-text">Show</span>
+            <i class="fas fa-chevron-down text-xs ml-1" id="toggle-history-icon"></i>
+          </button>
+        </div>
+
+        <div id="roadmap-history-container" class="space-y-3 hidden">
+          <?php if (empty($roadmapHistory)): ?>
+            <p class="text-gray-500 text-sm italic">No roadmap history found. Generate a roadmap to see it here.</p>
+          <?php else: ?>
+            <?php foreach ($roadmapHistory as $roadmap): ?>
+              <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <h3 class="font-medium text-lg"><?php echo htmlspecialchars($roadmap["career_goal"]); ?></h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                      <?php echo date("F j, Y, g:i a", strtotime($roadmap["created_at"])); ?>
+                    </p>
+                  </div>
+
+                  <div class="flex space-x-2">
+                    <button class="view-roadmap-btn text-sm px-3 py-1 bg-primary text-white rounded-md hover:bg-blue-600"
+                      data-id="<?php echo $roadmap["id"]; ?>"
+                      data-goal="<?php echo htmlspecialchars($roadmap["career_goal"]); ?>"
+                      data-roadmap='<?php echo htmlspecialchars($roadmap["roadmap_data"]); ?>'>
+                      View
+                    </button>
+                  </div>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+
     <!-- Loading State -->
     <div id="loading-state" class="card mb-8 hidden">
       <div class="p-8 text-center">
@@ -190,6 +296,14 @@ $email = $_SESSION["email"];
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-bold">Your Career Roadmap</h2>
           <div class="flex gap-2">
+            <button id="save-roadmap" class="btn btn-outline flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              Save
+            </button>
             <button id="download-roadmap" class="btn btn-outline flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor" stroke-width="2">
@@ -266,15 +380,16 @@ $email = $_SESSION["email"];
 
       const goalText = document.getElementById('goal-text');
       const roadmapContainer = document.getElementById('roadmap-container');
+      const saveRoadmapButton = document.getElementById('save-roadmap');
       const downloadRoadmapButton = document.getElementById('download-roadmap');
       const newRoadmapButton = document.getElementById('new-roadmap');
       const closeSuccessButton = document.getElementById('close-success');
 
-      // Saved roadmaps elements
-      const toggleSavedRoadmapsButton = document.getElementById('toggle-saved-roadmaps');
-      const savedRoadmapsContainer = document.getElementById('saved-roadmaps-container');
-      const toggleText = document.getElementById('toggle-text');
-      const toggleIcon = document.getElementById('toggle-icon');
+      // Roadmap history elements
+      const toggleRoadmapHistoryButton = document.getElementById('toggle-roadmap-history');
+      const roadmapHistoryContainer = document.getElementById('roadmap-history-container');
+      const toggleHistoryText = document.getElementById('toggle-history-text');
+      const toggleHistoryIcon = document.getElementById('toggle-history-icon');
 
       // Add this after defining DOM elements
       generateRoadmapButton.disabled = !careerGoalInput.value.trim();
@@ -321,8 +436,96 @@ $email = $_SESSION["email"];
         downloadRoadmap();
       });
 
+      saveRoadmapButton.addEventListener('click', async () => {
+        try {
+          // Disable button to prevent multiple clicks
+          saveRoadmapButton.disabled = true;
+          saveRoadmapButton.innerHTML = '<svg class="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
+
+          // Prepare data for saving
+          const roadmapData = JSON.stringify(state.roadmap);
+
+          // Send data to server
+          const formData = new FormData();
+          formData.append('save_roadmap', 'true');
+          formData.append('career_goal', state.careerGoal);
+          formData.append('roadmap_data', roadmapData);
+
+          const response = await fetch('AiRoadmap.php', {
+            method: 'POST',
+            body: formData
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            // Show success message
+            successMessageText.textContent = 'Your roadmap has been saved successfully.';
+            successMessage.classList.remove('hidden');
+
+            // Update button to show saved state
+            saveRoadmapButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> Saved';
+            saveRoadmapButton.classList.add('opacity-70');
+          } else {
+            throw new Error(result.message || 'Failed to save roadmap');
+          }
+        } catch (error) {
+          console.error('Error saving roadmap:', error);
+          alert('Error saving roadmap: ' + error.message);
+
+          // Reset button state
+          saveRoadmapButton.disabled = false;
+          saveRoadmapButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg> Save';
+        }
+      });
+
       closeSuccessButton.addEventListener('click', () => {
         successMessage.classList.add('hidden');
+      });
+
+      // Toggle roadmap history visibility
+      toggleRoadmapHistoryButton.addEventListener('click', () => {
+        roadmapHistoryContainer.classList.toggle('hidden');
+        if (roadmapHistoryContainer.classList.contains('hidden')) {
+          toggleHistoryText.textContent = 'Show';
+          toggleHistoryIcon.classList.remove('fa-chevron-up');
+          toggleHistoryIcon.classList.add('fa-chevron-down');
+        } else {
+          toggleHistoryText.textContent = 'Hide';
+          toggleHistoryIcon.classList.remove('fa-chevron-down');
+          toggleHistoryIcon.classList.add('fa-chevron-up');
+        }
+      });
+
+      // Add event listeners to view roadmap buttons
+      document.querySelectorAll('.view-roadmap-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          const roadmapGoal = button.getAttribute('data-goal');
+          const roadmapData = button.getAttribute('data-roadmap');
+
+          try {
+            // Parse the roadmap data
+            const roadmap = JSON.parse(roadmapData);
+
+            // Set state values
+            state.careerGoal = roadmapGoal;
+            state.roadmap = roadmap;
+
+            // Show the roadmap
+            showRoadmapResults();
+
+            // Scroll to the roadmap results
+            roadmapResults.scrollIntoView({ behavior: 'smooth' });
+
+            // Disable save button since it's already saved
+            saveRoadmapButton.disabled = true;
+            saveRoadmapButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> Saved';
+            saveRoadmapButton.classList.add('opacity-70');
+          } catch (error) {
+            console.error('Error parsing roadmap data:', error);
+            alert('Could not load roadmap data');
+          }
+        });
       });
 
       // Functions

@@ -5,6 +5,9 @@ session_start();
 // Include database configuration
 require_once "../auth/config.php";
 
+// Include the sample job data
+require_once "configJob.php"; // Make sure the path is correct
+
 // Check if user is logged in
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
   header("location: ../auth/login.php");
@@ -15,7 +18,7 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
 $user_id = $_SESSION["id"];
 $fullname = $_SESSION["fullname"];
 $email = $_SESSION["email"];
-$user_role = $_SESSION["role"];
+$user_role = $_SESSION["role"] ?? 'user'; // Default to 'user' if role is not set
 
 // Handle clearing assessment results
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['clear_assessment'])) {
@@ -405,6 +408,39 @@ $savedJobBookmarks = getSavedJobBookmarks($user_id);
 $userPostedJobs = getUserPostedJobs($user_id, $userSkills); // Pass skills for user's own jobs if needed for display
 $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matching all jobs
 
+// Get job application history
+$applicationHistory = [];
+$sql = "SELECT id, job_title, company, status, applied_at FROM job_applications
+        WHERE user_id = ? ORDER BY applied_at DESC LIMIT 10";
+
+if ($stmt = $conn->prepare($sql)) {
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $applicationHistory[] = $row;
+    }
+
+    $stmt->close();
+}
+
+// Get job bookmark history
+$bookmarkHistory = [];
+$sql = "SELECT id, job_title, company, saved_at FROM job_bookmarks
+        WHERE user_id = ? ORDER BY saved_at DESC LIMIT 10";
+
+if ($stmt = $conn->prepare($sql)) {
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $bookmarkHistory[] = $row;
+    }
+
+    $stmt->close();
+}
 ?>
 
 <!DOCTYPE html>
@@ -514,7 +550,7 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
               stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2z" />
+                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             Jobs
           </a>
@@ -621,16 +657,31 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
         <h2 class="text-xl font-bold mb-4">My Posted Jobs</h2>
         <div class="space-y-4">
           <?php foreach ($userPostedJobs as $job): ?>
-            <div class="card p-4">
+            <div class="card p-4 hover:shadow-md transition-all duration-200">
               <div class="flex items-start">
-                <img src="<?php echo htmlspecialchars($job['logo'] ?? ''); ?>" alt="<?php echo htmlspecialchars($job['company']); ?>" class="w-12 h-12 rounded mr-4">
+                <img src="<?php echo htmlspecialchars($job['logo'] ?? ''); ?>" alt="<?php echo htmlspecialchars($job['company']); ?>"
+                     class="w-12 h-12 rounded-lg mr-4 object-contain border border-gray-100 shadow-sm">
                 <div class="flex-1">
                   <div class="flex justify-between">
-                    <h3 class="font-semibold text-lg"><?php echo htmlspecialchars($job['title']); ?></h3>
+                    <h3 class="font-semibold text-lg text-gray-900 hover:text-blue-600"><?php echo htmlspecialchars($job['title']); ?></h3>
                     <div class="text-sm text-gray-500">Posted <?php echo htmlspecialchars($job['posted']); ?></div>
                   </div>
-                  <div class="text-gray-600"><?php echo htmlspecialchars($job['company']); ?> · <?php echo htmlspecialchars($job['location']); ?></div>
-                  <div class="mt-2 text-gray-700 text-sm"><?php echo nl2br(htmlspecialchars(substr($job['description'], 0, 150))) . (strlen($job['description']) > 150 ? '...' : ''); ?></div>
+                  <div class="text-gray-600 text-sm flex items-center mt-1">
+                    <span><?php echo htmlspecialchars($job['company']); ?></span>
+                    <span class="mx-2">•</span>
+                    <span class="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <?php echo htmlspecialchars($job['location']); ?>
+                    </span>
+                  </div>
+                  <div class="mt-3 text-gray-700 text-sm leading-relaxed">
+                    <?php echo nl2br(htmlspecialchars(substr($job['description'], 0, 150))) . (strlen($job['description']) > 150 ? '...' : ''); ?>
+                  </div>
+
+                  <!-- Skills Badges -->
                   <div class="mt-3 flex flex-wrap gap-2">
                     <?php if (!empty($job['skills'])): ?>
                       <?php foreach ($job['skills'] as $skill): ?>
@@ -638,6 +689,8 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                       <?php endforeach; ?>
                     <?php endif; ?>
                   </div>
+                  <!-- End Skills Badges -->
+
                   <div class="mt-4 flex items-center justify-between">
                     <div class="text-sm text-gray-500">
                       <span><?php echo htmlspecialchars($job['applicants']); ?> applicants</span>
@@ -646,11 +699,11 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                       <?php endif; ?>
                     </div>
                     <div class="flex gap-2">
-                      <button class="btn btn-outline text-sm py-1">Edit</button>
+                      <button class="btn btn-outline text-sm py-1 px-3 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">Edit</button>
                       <?php if ($job['is_active']): ?>
-                        <button class="btn btn-outline text-sm py-1 text-red-600 border-red-300 hover:bg-red-50">Deactivate</button>
+                        <button class="btn btn-outline text-sm py-1 px-3 text-red-600 border-red-300 hover:bg-red-50">Deactivate</button>
                       <?php else: ?>
-                        <button class="btn btn-outline text-sm py-1 text-green-600 border-green-300 hover:bg-green-50">Activate</button>
+                        <button class="btn btn-outline text-sm py-1 px-3 text-green-600 border-green-300 hover:bg-green-50">Activate</button>
                       <?php endif; ?>
                     </div>
                   </div>
@@ -684,13 +737,14 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
             </div>
           <?php else: ?>
             <?php foreach ($allJobs as $job): ?>
-              <div class="card p-4">
+              <div class="card p-4 hover:shadow-md transition-all duration-200">
                 <div class="flex items-start">
-                  <img src="<?php echo htmlspecialchars($job['logo'] ?? ''); ?>" alt="<?php echo htmlspecialchars($job['company']); ?>" class="w-12 h-12 rounded mr-4 object-contain border border-gray-100">
+                  <img src="<?php echo htmlspecialchars($job['logo'] ?? ''); ?>" alt="<?php echo htmlspecialchars($job['company']); ?>"
+                       class="w-12 h-12 rounded-lg mr-4 object-contain border border-gray-100 shadow-sm">
                   <div class="flex-1">
                     <div class="flex justify-between">
-                      <h3 class="font-semibold text-lg"><?php echo htmlspecialchars($job['title']); ?></h3>
-                      <button class="save-job-btn text-gray-400 hover:text-primary"
+                      <h3 class="font-semibold text-lg text-gray-900 hover:text-blue-600"><?php echo htmlspecialchars($job['title']); ?></h3>
+                      <button class="save-job-btn text-gray-400 hover:text-blue-600 transition-colors"
                         data-id="<?php echo $job['id']; ?>"
                         data-title="<?php echo htmlspecialchars($job['title']); ?>"
                         data-company="<?php echo htmlspecialchars($job['company']); ?>">
@@ -701,8 +755,20 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                         </svg>
                       </button>
                     </div>
-                    <div class="text-gray-600 text-sm"><?php echo htmlspecialchars($job['company']); ?> · <?php echo htmlspecialchars($job['location']); ?></div>
-                    <div class="mt-2 text-gray-700 text-sm"><?php echo nl2br(htmlspecialchars(substr($job['description'], 0, 150))) . (strlen($job['description']) > 150 ? '...' : ''); ?></div>
+                    <div class="text-gray-600 text-sm flex items-center mt-1">
+                      <span><?php echo htmlspecialchars($job['company']); ?></span>
+                      <span class="mx-2">•</span>
+                      <span class="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <?php echo htmlspecialchars($job['location']); ?>
+                      </span>
+                    </div>
+                    <div class="mt-3 text-gray-700 text-sm leading-relaxed">
+                      <?php echo nl2br(htmlspecialchars(substr($job['description'], 0, 150))) . (strlen($job['description']) > 150 ? '...' : ''); ?>
+                    </div>
 
                     <!-- Skills Badges -->
                     <div class="mt-3 flex flex-wrap gap-2">
@@ -715,10 +781,12 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                             $skillLower = strtolower($skill);
                             $isMatched = !empty($userSkills) && in_array($skillLower, $userSkillsLower);
                           ?>
-                          <span class="badge <?php echo $isMatched ? 'badge-green' : 'badge-blue'; ?>">
+                          <span class="badge <?php echo $isMatched ? 'badge-green' : 'badge-blue'; ?> inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
                             <?php echo htmlspecialchars($skill); ?>
                             <?php if ($isMatched): ?>
-                              <i class="fas fa-check ml-1 text-green-700 text-xs"></i>
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 ml-1 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                              </svg>
                             <?php endif; ?>
                           </span>
                         <?php endforeach; ?>
@@ -737,7 +805,7 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                           </span>
                         <?php endif; ?>
                       </div>
-                      <div class="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                      <div class="w-full bg-gray-200 rounded-full h-1.5">
                         <div class="bg-blue-600 h-1.5 rounded-full" style="width: <?php echo round($job['match_score'] * 100) ?>%"></div>
                       </div>
                     </div>
@@ -745,18 +813,27 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                     <!-- End Match Score Display -->
 
                     <div class="mt-4 flex items-center justify-between">
-                      <div class="text-sm text-gray-500">
-                        <span><?php echo htmlspecialchars($job['posted']); ?></span> · <span><?php echo htmlspecialchars($job['applicants']); ?> applicants</span>
+                      <div class="text-sm text-gray-500 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span><?php echo htmlspecialchars($job['posted']); ?></span>
+                        <span class="mx-2">•</span>
+                        <span><?php echo htmlspecialchars($job['applicants']); ?> applicants</span>
                       </div>
                       <div class="flex gap-2">
-                        <button class="easy-apply-btn btn btn-outline text-sm py-1"
+                        <button class="easy-apply-btn btn btn-outline text-sm py-1 px-3 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                           data-id="<?php echo $job['id']; ?>"
                           data-title="<?php echo htmlspecialchars($job['title']); ?>"
-                          data-company="<?php echo htmlspecialchars($job['company']); ?>">Easy Apply</button>
-                        <button class="apply-now-btn btn btn-secondary text-sm py-1"
+                          data-company="<?php echo htmlspecialchars($job['company']); ?>">
+                          Easy Apply
+                        </button>
+                        <button class="apply-now-btn btn btn-secondary text-sm py-1 px-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                           data-id="<?php echo $job['id']; ?>"
                           data-title="<?php echo htmlspecialchars($job['title']); ?>"
-                          data-company="<?php echo htmlspecialchars($job['company']); ?>">Apply Now</button>
+                          data-company="<?php echo htmlspecialchars($job['company']); ?>">
+                          Apply Now
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -848,18 +925,18 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
       <form id="post-job-form" class="space-y-4">
         <div>
           <label for="job-title" class="block text-sm font-medium text-gray-700 mb-1">Job Title <span class="text-red-500">*</span></label>
-          <input type="text" id="job-title" name="job-title" class="input" required>
+          <input type="text" id="job-title" name="title" class="input" required>
         </div>
 
         <div>
           <label for="company-name" class="block text-sm font-medium text-gray-700 mb-1">Company Name <span class="text-red-500">*</span></label>
-          <input type="text" id="company-name" name="company-name" class="input" required>
+          <input type="text" id="company-name" name="company" class="input" required>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label for="job-location" class="block text-sm font-medium text-gray-700 mb-1">Location <span class="text-red-500">*</span></label>
-            <select id="job-location" name="job-location" class="input" required>
+            <select id="job-location" name="location" class="input" required>
               <option value="">Select Location</option>
               <option value="remote">Remote</option>
               <option value="new-york">New York</option>
@@ -872,7 +949,7 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
 
           <div>
             <label for="job-type" class="block text-sm font-medium text-gray-700 mb-1">Job Type <span class="text-red-500">*</span></label>
-            <select id="job-type" name="job-type" class="input" required>
+            <select id="job-type" name="jobType" class="input" required>
               <option value="">Select Job Type</option>
               <option value="full-time">Full-time</option>
               <option value="part-time">Part-time</option>
@@ -884,22 +961,22 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
 
         <div>
           <label for="salary-range" class="block text-sm font-medium text-gray-700 mb-1">Salary Range (Optional)</label>
-          <input type="text" id="salary-range" name="salary-range" class="input" placeholder="e.g., $80,000 - $100,000">
+          <input type="text" id="salary-range" name="salary" class="input" placeholder="e.g., $80,000 - $100,000">
         </div>
 
         <div>
           <label for="job-description" class="block text-sm font-medium text-gray-700 mb-1">Job Description <span class="text-red-500">*</span></label>
-          <textarea id="job-description" name="job-description" rows="5" class="input" required></textarea>
+          <textarea id="job-description" name="description" rows="5" class="input" required></textarea>
         </div>
 
         <div>
           <label for="required-skills" class="block text-sm font-medium text-gray-700 mb-1">Required Skills (comma separated)</label>
-          <input type="text" id="required-skills" name="required-skills" class="input" placeholder="e.g., JavaScript, React, Node.js">
+          <input type="text" id="required-skills" name="skills" class="input" placeholder="e.g., JavaScript, React, Node.js">
         </div>
 
         <div>
           <label for="expires-at" class="block text-sm font-medium text-gray-700 mb-1">Listing Expires <span class="text-red-500">*</span></label>
-          <input type="date" id="expires-at" name="expires-at" class="input" required>
+          <input type="date" id="expires-at" name="expiresAt" class="input" required>
         </div>
 
         <div class="pt-4">
@@ -959,6 +1036,99 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
     </div>
   </div>
 
+  <!-- Application History Section -->
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-primary flex items-center gap-2">
+          <i class="fas fa-history text-primary"></i>
+          Application History
+        </h2>
+        <button id="toggle-application-history" class="text-sm text-primary hover:text-blue-700 flex items-center">
+          <span id="toggle-app-text">Show</span>
+          <i class="fas fa-chevron-down text-xs ml-1" id="toggle-app-icon"></i>
+        </button>
+      </div>
+
+      <div id="application-history-container" class="space-y-3 hidden">
+        <?php if (empty($applicationHistory)): ?>
+          <p class="text-gray-500 text-sm italic">No application history found. Apply to jobs to see them here.</p>
+        <?php else: ?>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
+                  <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
+                  <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied On</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <?php foreach ($applicationHistory as $application): ?>
+                  <tr>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($application['job_title']); ?></td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($application['company']); ?></td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        <?php echo htmlspecialchars($application['status']); ?>
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500"><?php echo date('M d, Y', strtotime($application['applied_at'])); ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        <?php endif; ?>
+      </div>
+    </div>
+
+    <!-- Saved Jobs History Section -->
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-primary flex items-center gap-2">
+          <i class="fas fa-bookmark text-primary"></i>
+          Saved Jobs
+        </h2>
+        <button id="toggle-bookmark-history" class="text-sm text-primary hover:text-blue-700 flex items-center">
+          <span id="toggle-bookmark-text">Show</span>
+          <i class="fas fa-chevron-down text-xs ml-1" id="toggle-bookmark-icon"></i>
+        </button>
+      </div>
+
+      <div id="bookmark-history-container" class="space-y-3 hidden">
+        <?php if (empty($bookmarkHistory)): ?>
+          <p class="text-gray-500 text-sm italic">No saved jobs found. Save jobs to see them here.</p>
+        <?php else: ?>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
+                  <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
+                  <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saved On</th>
+                  <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <?php foreach ($bookmarkHistory as $bookmark): ?>
+                  <tr>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($bookmark['job_title']); ?></td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($bookmark['company']); ?></td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500"><?php echo date('M d, Y', strtotime($bookmark['saved_at'])); ?></td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm">
+                      <button class="text-primary hover:text-primary-dark">
+                        <i class="fas fa-search mr-1"></i> View
+                      </button>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        <?php endif; ?>
+      </div>
+    </div>
 
   <script>
     // State management
@@ -1119,6 +1289,7 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
     jobListingsContainer.addEventListener('click', async (e) => {
         const saveButton = e.target.closest('.save-job-btn');
         const applyButton = e.target.closest('.easy-apply-btn, .apply-now-btn');
+        const clearFiltersEmptyButton = e.target.closest('#clear-filters-empty'); // Check for the clear button
 
         if (saveButton) {
             const jobId = parseInt(saveButton.dataset.id);
@@ -1208,6 +1379,11 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
             }
             // Note: Button remains disabled on success in this logic
         }
+
+        // NEW: Handle click on the clear filters button within the container
+        if (clearFiltersEmptyButton) {
+            clearAllFilters();
+        }
     });
 
 
@@ -1262,6 +1438,7 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
         }
 
         if (state.filteredJobs.length === 0 && !append) {
+            // MODIFIED: Added a "Clear Filters" button
             jobListingsContainer.innerHTML = `
                 <div class="text-center py-8 bg-white rounded-lg border border-dashed border-gray-300">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1269,6 +1446,7 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                   </svg>
                   <h3 class="text-lg font-medium text-gray-900">No jobs match your filters</h3>
                   <p class="text-gray-500 mt-2">Try adjusting your search or filters.</p>
+                  <button id="clear-filters-empty" class="mt-4 btn btn-outline text-sm">Clear Filters</button>
                 </div>`;
         } else {
             jobsToRender.forEach(job => {
@@ -1287,9 +1465,26 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
         }
     }
 
+    // NEW FUNCTION: To clear all filters
+    function clearAllFilters() {
+        // Clear state
+        state.filters.search = '';
+        state.filters.location = '';
+        state.filters.jobType = '';
+
+        // Clear input elements
+        searchInput.value = '';
+        locationFilter.value = '';
+        jobTypeFilter.value = '';
+
+        // Update UI
+        updateFilterTags();
+        applyFilters(); // Re-apply filters (which are now empty) to show all jobs
+    }
+
     function createJobCard(job) {
         const div = document.createElement('div');
-        div.className = 'card p-4';
+        div.className = 'card p-4 hover:shadow-md transition-all duration-200';
 
         const isSaved = state.savedJobs.includes(job.id);
         const userSkillsLower = <?php echo json_encode(array_map('strtolower', $userSkills)); ?>; // Get lowercase user skills
@@ -1300,8 +1495,8 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                 const skillLower = skill.toLowerCase();
                 const isMatched = userSkillsLower.length > 0 && userSkillsLower.includes(skillLower);
                 const badgeClass = isMatched ? 'badge-green' : 'badge-blue';
-                const iconHtml = isMatched ? '<i class="fas fa-check ml-1 text-green-700 text-xs"></i>' : '';
-                return `<span class="badge ${badgeClass}">${htmlspecialchars(skill)}${iconHtml}</span>`;
+                const iconHtml = isMatched ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 ml-1 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>' : '';
+                return `<span class="badge ${badgeClass} inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">${htmlspecialchars(skill)}${iconHtml}</span>`;
             }).join('');
         }
 
@@ -1316,7 +1511,7 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                     <span class="font-medium text-blue-700">Match: ${Math.round(job.match_score * 100)}%</span>
                     ${matchedSkillsText ? `<span class="truncate" title="Matching skills: ${htmlspecialchars(job.matched_skills.join(', '))}">${matchedSkillsText}</span>` : ''}
                   </div>
-                  <div class="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                  <div class="w-full bg-gray-200 rounded-full h-1.5">
                     <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${Math.round(job.match_score * 100)}%"></div>
                   </div>
                 </div>`;
@@ -1325,11 +1520,11 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
 
         div.innerHTML = `
             <div class="flex items-start">
-              <img src="${htmlspecialchars(job.logo || '')}" alt="${htmlspecialchars(job.company)}" class="w-12 h-12 rounded mr-4 object-contain border border-gray-100">
+              <img src="${htmlspecialchars(job.logo || '')}" alt="${htmlspecialchars(job.company)}" class="w-12 h-12 rounded-lg mr-4 object-contain border border-gray-100 shadow-sm">
               <div class="flex-1">
                 <div class="flex justify-between">
-                  <h3 class="font-semibold text-lg">${htmlspecialchars(job.title)}</h3>
-                  <button class="save-job-btn text-gray-400 hover:text-primary"
+                  <h3 class="font-semibold text-lg text-gray-900 hover:text-blue-600">${htmlspecialchars(job.title)}</h3>
+                  <button class="save-job-btn text-gray-400 hover:text-blue-600 transition-colors"
                     data-id="${job.id}"
                     data-title="${htmlspecialchars(job.title)}"
                     data-company="${htmlspecialchars(job.company)}">
@@ -1340,25 +1535,46 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
                     </svg>
                   </button>
                 </div>
-                <div class="text-gray-600 text-sm">${htmlspecialchars(job.company)} · ${htmlspecialchars(job.location)}</div>
-                <div class="mt-2 text-gray-700 text-sm">${nl2br(htmlspecialchars(job.description.substring(0, 150)))}${job.description.length > 150 ? '...' : ''}</div>
+                <div class="text-gray-600 text-sm flex items-center mt-1">
+                  <span>${htmlspecialchars(job.company)}</span>
+                  <span class="mx-2">•</span>
+                  <span class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    ${htmlspecialchars(job.location)}
+                  </span>
+                </div>
+                <div class="mt-3 text-gray-700 text-sm leading-relaxed">
+                  ${nl2br(htmlspecialchars(job.description.substring(0, 150)))}${job.description.length > 150 ? '...' : ''}
+                </div>
                 <div class="mt-3 flex flex-wrap gap-2">
                   ${skillsHtml}
                 </div>
                 ${matchScoreHtml}
                 <div class="mt-4 flex items-center justify-between">
-                  <div class="text-sm text-gray-500">
-                    <span>${htmlspecialchars(job.posted)}</span> · <span>${htmlspecialchars(job.applicants)} applicants</span>
+                  <div class="text-sm text-gray-500 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>${htmlspecialchars(job.posted)}</span>
+                    <span class="mx-2">•</span>
+                    <span>${htmlspecialchars(job.applicants)} applicants</span>
                   </div>
                   <div class="flex gap-2">
-                    <button class="easy-apply-btn btn btn-outline text-sm py-1"
+                    <button class="easy-apply-btn btn btn-outline text-sm py-1 px-3 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                       data-id="${job.id}"
                       data-title="${htmlspecialchars(job.title)}"
-                      data-company="${htmlspecialchars(job.company)}">Easy Apply</button>
-                    <button class="apply-now-btn btn btn-secondary text-sm py-1"
+                      data-company="${htmlspecialchars(job.company)}">
+                      Easy Apply
+                    </button>
+                    <button class="apply-now-btn btn btn-secondary text-sm py-1 px-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                       data-id="${job.id}"
                       data-title="${htmlspecialchars(job.title)}"
-                      data-company="${htmlspecialchars(job.company)}">Apply Now</button>
+                      data-company="${htmlspecialchars(job.company)}">
+                      Apply Now
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1434,6 +1650,34 @@ $allJobs = getUserPostedJobs(null, $userSkills); // Pass skills for sorting/matc
       if (e.target === messageModal) {
         messageModal.classList.add('hidden');
       }
+    });
+
+    // Toggle Application History
+    const toggleApplicationHistoryButton = document.getElementById('toggle-application-history');
+    const applicationHistoryContainer = document.getElementById('application-history-container');
+    const toggleAppText = document.getElementById('toggle-app-text');
+    const toggleAppIcon = document.getElementById('toggle-app-icon');
+
+    toggleApplicationHistoryButton.addEventListener('click', () => {
+        applicationHistoryContainer.classList.toggle('hidden');
+        const isHidden = applicationHistoryContainer.classList.contains('hidden');
+        toggleAppText.textContent = isHidden ? 'Show' : 'Hide';
+        toggleAppIcon.classList.toggle('fa-chevron-down', isHidden);
+        toggleAppIcon.classList.toggle('fa-chevron-up', !isHidden);
+    });
+
+    // Toggle Bookmark History
+    const toggleBookmarkHistoryButton = document.getElementById('toggle-bookmark-history');
+    const bookmarkHistoryContainer = document.getElementById('bookmark-history-container');
+    const toggleBookmarkText = document.getElementById('toggle-bookmark-text');
+    const toggleBookmarkIcon = document.getElementById('toggle-bookmark-icon');
+
+    toggleBookmarkHistoryButton.addEventListener('click', () => {
+        bookmarkHistoryContainer.classList.toggle('hidden');
+        const isHidden = bookmarkHistoryContainer.classList.contains('hidden');
+        toggleBookmarkText.textContent = isHidden ? 'Show' : 'Hide';
+        toggleBookmarkIcon.classList.toggle('fa-chevron-down', isHidden);
+        toggleBookmarkIcon.classList.toggle('fa-chevron-up', !isHidden);
     });
   </script>
 </body>
