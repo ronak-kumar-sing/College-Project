@@ -25,28 +25,42 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_results']) && iss
     header('Content-Type: application/json'); // Ensure JSON response
 
     try {
-        $skills = json_decode($_POST['skills'], true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Invalid skills format.');
+        // Skills should be a JSON string representing an array
+        $skills_json = $_POST['skills'];
+        $skills_array = json_decode($skills_json, true);
+
+        // Validate the decoded skills
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($skills_array)) {
+             // Log the received data for debugging
+            error_log("Invalid skills JSON received. Raw data: " . $_POST['skills']);
+            throw new Exception('Invalid skills format received from client.');
         }
 
+        // Ensure skills are strings and clean them up
+        $cleaned_skills = array_map(function($skill) {
+            return is_string($skill) ? trim($skill) : ''; // Trim strings, handle non-strings
+        }, $skills_array);
+        $cleaned_skills = array_filter($cleaned_skills); // Remove empty elements
+
+        // Store the cleaned array in the session
         $_SESSION['assessment_results'] = [
             'career_interest' => $_POST['career_interest'],
-            'skills' => $skills,
+            'skills' => $cleaned_skills, // Store the cleaned PHP array
             'timestamp' => time()
         ];
 
         // Save to database for history
         $career_interest = $_POST['career_interest'];
-        $skills_json = $_POST['skills'];
+        // Store the original JSON string (or re-encode the cleaned array) in the DB
+        $skills_to_save_json = json_encode($cleaned_skills);
 
         // Create career_assessments table if it doesn't exist
         $sql = "CREATE TABLE IF NOT EXISTS career_assessments (
             id INT(11) AUTO_INCREMENT PRIMARY KEY,
             user_id INT(11) NOT NULL,
             career_interest VARCHAR(255) NOT NULL,
-            skills TEXT NOT NULL,
-            results TEXT,
+            skills TEXT NOT NULL, /* Storing JSON string of skills array */
+            results TEXT, /* Storing the full AI result text */
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )";
@@ -56,21 +70,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_results']) && iss
         }
 
         // Insert into database
-        $sql = "INSERT INTO career_assessments (user_id, career_interest, skills) VALUES (?, ?, ?)";
+        $sql = "INSERT INTO career_assessments (user_id, career_interest, skills, results) VALUES (?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
 
         if ($stmt === false) {
             throw new Exception('Prepare failed: ' . $conn->error);
         }
 
-        if (!$stmt->bind_param("iss", $user_id, $career_interest, $skills_json)) {
-            // Close statement before throwing exception
+        // Get the full results text if sent, otherwise use empty string
+        $full_results_text = $_POST['full_results'] ?? '';
+
+        if (!$stmt->bind_param("isss", $user_id, $career_interest, $skills_to_save_json, $full_results_text)) {
             $stmt->close();
             throw new Exception('Binding parameters failed: ' . $stmt->error);
         }
 
         if (!$stmt->execute()) {
-            // Close statement before throwing exception
             $error = $stmt->error;
             $stmt->close();
             throw new Exception('Execute failed: ' . $error);
@@ -117,7 +132,8 @@ if ($resultResults && $resultResults->num_rows == 0) {
 
 // Fetch assessment history from database
 $assessmentHistory = [];
-$sql = "SELECT id, career_interest, skills, created_at FROM career_assessments
+// MODIFIED: Fetch 'results' column as well to potentially show full text later
+$sql = "SELECT id, career_interest, skills, results, created_at FROM career_assessments
         WHERE user_id = ? ORDER BY created_at DESC LIMIT 10";
 
 if ($stmt = $conn->prepare($sql)) {
@@ -126,6 +142,9 @@ if ($stmt = $conn->prepare($sql)) {
     $result = $stmt->get_result();
 
     while ($row = $result->fetch_assoc()) {
+        // Decode skills JSON for display
+        $skills_decoded = json_decode($row['skills'], true);
+        $row['skills_array'] = is_array($skills_decoded) ? $skills_decoded : []; // Store decoded skills in a new key
         $assessmentHistory[] = $row;
     }
 
@@ -284,14 +303,12 @@ if ($stmt = $conn->prepare($sql)) {
                                         </p>
 
                                         <?php
-                                        // Display skills if available
-                                        $skills = json_decode($assessment["skills"], true);
-                                        if (!empty($skills) && is_array($skills)):
+                                        // Display skills if available from the decoded array
+                                        if (!empty($assessment['skills_array'])):
                                         ?>
                                             <div class="mt-2">
-                                                <p class="text-sm text-gray-700 font-medium">Skills:</p>
                                                 <div class="flex flex-wrap gap-1 mt-1">
-                                                    <?php foreach ($skills as $skill): ?>
+                                                    <?php foreach ($assessment['skills_array'] as $skill): ?>
                                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                             <?php echo htmlspecialchars($skill); ?>
                                                         </span>
@@ -304,13 +321,14 @@ if ($stmt = $conn->prepare($sql)) {
                                     <div class="flex space-x-2">
                                         <button class="view-assessment-btn text-sm px-3 py-1 bg-primary text-white rounded-md hover:bg-blue-600"
                                             data-id="<?php echo $assessment["id"]; ?>"
-                                            data-interest="<?php echo htmlspecialchars($assessment["career_interest"]); ?>">
+                                            data-interest="<?php echo htmlspecialchars($assessment["career_interest"]); ?>"
+                                            data-results="<?php echo htmlspecialchars($assessment["results"] ?? 'No detailed results available.'); ?>">
                                             View
                                         </button>
                                         <button class="use-assessment-btn text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                                             data-id="<?php echo $assessment["id"]; ?>"
                                             data-interest="<?php echo htmlspecialchars($assessment["career_interest"]); ?>"
-                                            data-skills='<?php echo htmlspecialchars($assessment["skills"]); ?>'>
+                                            data-skills='<?php echo htmlspecialchars($assessment["skills"]); // Pass the original JSON string ?>'>
                                             Use for Jobs
                                         </button>
                                     </div>
@@ -429,7 +447,8 @@ if ($stmt = $conn->prepare($sql)) {
                 allAnswers: [],
                 currentAnswers: {},
                 aiExplanation: '',
-                results: '',
+                results: '', // Holds the full AI response text
+                extractedSkills: [], // Holds the array of extracted skills
                 isLoading: false,
                 userId: <?php echo $user_id; ?>,
                 userName: "<?php echo htmlspecialchars($fullname); ?>"
@@ -520,42 +539,29 @@ if ($stmt = $conn->prepare($sql)) {
 
             // Add event listeners to view assessment buttons
             document.querySelectorAll('.view-assessment-btn').forEach(button => {
-                button.addEventListener('click', async () => {
-                    const assessmentId = button.getAttribute('data-id');
+                button.addEventListener('click', () => {
                     const interest = button.getAttribute('data-interest');
+                    const resultsText = button.getAttribute('data-results'); // Get full results text
 
-                    try {
-                        // NOTE: You need to create get_assessment.php to handle this request
-                        const response = await fetch(`get_assessment.php?id=${assessmentId}`);
-                        const data = await response.json();
+                    state.results = resultsText;
+                    state.careerInterest = interest;
+                    state.extractedSkills = []; // Clear skills when viewing old results
 
-                        if (data.success) {
-                            state.results = data.results || "No detailed results available for this assessment.";
-                            state.careerInterest = interest;
+                    introPage.classList.add('hidden');
+                    questionnaireContainer.classList.add('hidden');
+                    processingPage.classList.add('hidden');
 
-                            introPage.classList.add('hidden');
-                            questionnaireContainer.classList.add('hidden');
-                            processingPage.classList.add('hidden');
-
-                            resultsContent.innerHTML = formatText(state.results);
-                            resultsPage.classList.remove('hidden');
-                            saveResultsButton.classList.add('hidden'); // Hide save for viewed history
-                        } else {
-                            alert('Error loading assessment: ' + data.message);
-                        }
-                    } catch (error) {
-                        console.error('Error fetching assessment:', error);
-                        alert('Could not load assessment details');
-                    }
+                    resultsContent.innerHTML = formatText(state.results);
+                    resultsPage.classList.remove('hidden');
+                    saveResultsButton.classList.add('hidden'); // Hide save for viewed history
                 });
             });
 
             // Add event listeners to "Use for Jobs" buttons
             document.querySelectorAll('.use-assessment-btn').forEach(button => {
                 button.addEventListener('click', async () => {
-                    const assessmentId = button.getAttribute('data-id');
                     const interest = button.getAttribute('data-interest');
-                    const skills = button.getAttribute('data-skills'); // Skills are already JSON string
+                    const skillsJsonString = button.getAttribute('data-skills'); // Skills are already JSON string
 
                     try {
                         const response = await fetch('Home.php', {
@@ -564,7 +570,8 @@ if ($stmt = $conn->prepare($sql)) {
                                 'Content-Type': 'application/x-www-form-urlencoded',
                             },
                             // Send skills as the JSON string from the data attribute
-                            body: `save_results=true&career_interest=${encodeURIComponent(interest)}&skills=${encodeURIComponent(skills)}`
+                            // Also send full_results as empty since we don't have it here easily
+                            body: `save_results=true&career_interest=${encodeURIComponent(interest)}&skills=${encodeURIComponent(skillsJsonString)}&full_results=`
                         });
 
                         const data = await response.json();
@@ -806,19 +813,21 @@ ${formattedAnswers.join('\n\n')}
 
 Based on this information, please provide:
 1. A personalized career path recommendation
-2. Key skills I should develop
+2. Key skills I should develop (list 5-10 specific, actionable skills as bullet points or a numbered list under a clear heading like "Key Skills to Develop")
 3. Educational or training recommendations
 4. Potential challenges I might face and how to overcome them
 5. Next steps I should take
 
-Please format your response with clear sections and bullet points where appropriate.`;
+Please format your response with clear sections and bullet points where appropriate. Ensure the skills list is clearly identifiable.`;
 
                     const response = await generateResponse(prompt);
-                    state.results = response;
+                    state.results = response; // Store the full response text
+                    state.extractedSkills = extractSkillsFromResults(state.results); // Extract skills
                     renderResults();
                 } catch (error) {
                     console.error("Error generating career assessment:", error);
                     state.results = "I'm sorry, I encountered an error processing your assessment. Please try again later.";
+                    state.extractedSkills = []; // Ensure skills are empty on error
                     renderResults();
                 }
             }
@@ -838,6 +847,7 @@ Please format your response with clear sections and bullet points where appropri
                 state.currentAnswers = {};
                 state.aiExplanation = '';
                 state.results = '';
+                state.extractedSkills = []; // Reset skills
 
                 careerInterestInput.value = '';
                 startAssessmentButton.disabled = true;
@@ -846,35 +856,100 @@ Please format your response with clear sections and bullet points where appropri
                 introPage.classList.remove('hidden');
             }
 
-            async function saveResults() {
-                saveResultsButton.disabled = true;
-                saveResultsButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
+            // --- Clean Skill Extraction Logic ---
+            function extractSkillsFromResults(resultsText) {
+                if (!resultsText) return [];
 
-                try {
-                    // Extract skills from results
-                    const skillsMatch = state.results.match(/(?:Key skills|skills I should develop|skills to develop|recommend developing|focus on developing)[\s\S]*?(?:\n\n|\.|$)/i);
-                    let skills = [];
+                const skills = [];
 
-                    if (skillsMatch && skillsMatch[0]) {
-                        const skillSection = skillsMatch[0];
-                        const potentialSkills = skillSection.split(/[\n*\-•\d+\.]/);
+                // Find the skills section in the text
+                const skillsSectionRegex = /(?:Key Skills|Skills to Develop|Skills I should develop|Recommended Skills|Focus on developing|Key Skills to Develop)[:\s]*([\s\S]*?)(?:\n\n|\n##|\n#|$)/i;
+                const match = resultsText.match(skillsSectionRegex);
 
-                        skills = potentialSkills
-                            .map(s => s.replace(/:\s*$/, '').trim())
-                            .filter(s => s.length > 2 && s.length < 50 && /^[a-zA-Z0-9\s\-]+$/.test(s) && !s.toLowerCase().includes('such as') && !s.toLowerCase().includes('including'));
+                if (match && match[1]) {
+                    // Get the skills section content and split by list markers
+                    const skillListText = match[1];
+                    const potentialSkills = skillListText.split(/\n\s*(?:[*•\-–]|\d+[\.\)])\s*/);
+
+                    potentialSkills.forEach(skill => {
+                        // Initial cleaning
+                        let cleanedSkill = skill.trim();
+
+                        if (cleanedSkill.length < 3) return;
+
+                        // Remove explanations in parentheses
+                        cleanedSkill = cleanedSkill.replace(/\([^)]*\)/g, '').trim();
+
+                        // Remove explanations after colon
+                        cleanedSkill = cleanedSkill.replace(/:[^,]*(?:,|$)/, '').trim();
+
+                        // Remove trailing punctuation
+                        cleanedSkill = cleanedSkill.replace(/[,.;:]$/, '').trim();
+
+                        // Remove "to develop" phrases
+                        cleanedSkill = cleanedSkill.replace(/\b(to develop|skill to|should develop)\b/gi, '').trim();
+
+                        // Remove other common non-skill phrases
+                        cleanedSkill = cleanedSkill.replace(/\b(proficiency in|knowledge of|ability to|understanding of|learn|master|develop)\b/gi, '').trim();
+
+                        // Remove any remaining list markers and punctuation
+                        cleanedSkill = cleanedSkill.replace(/^[-*•]/, '').trim();
+                        cleanedSkill = cleanedSkill.replace(/^[-\s]+|[-\s]+$/g, '').trim();
+
+                        // Basic validation
+                        if (cleanedSkill &&
+                            cleanedSkill.length > 2 &&
+                            cleanedSkill.length < 50 &&
+                            /[a-zA-Z]/.test(cleanedSkill) &&
+                            !/^(key|skill|develop|focus)/i.test(cleanedSkill) &&
+                            !/\b(such as|including|for example|e\.g\.|i\.e\.)\b/i.test(cleanedSkill)) {
+
+                            // Only add if not already in the list
+                            if (!skills.includes(cleanedSkill)) {
+                                skills.push(cleanedSkill);
+                            }
+                        }
+                    });
+                } else {
+                    // Fallback: extract common skills from the full text
+                    const skillMatches = resultsText.match(/\b(?:JavaScript|Python|React|Angular|SQL|HTML|CSS|Node\.js|AWS|Docker|Git|machine learning|data analysis|leadership|communication|problem[\- ]solving|project management|UI\/UX|design|marketing|sales|teamwork|critical thinking|creativity)\b/gi);
+
+                    if (skillMatches) {
+                        const uniqueSkills = [...new Set(skillMatches.map(s => s.trim()))];
+                        skills.push(...uniqueSkills);
                     }
+                }
+
+                return skills;
+            }
+            // --- End Skill Extraction Logic ---
+
+            async function saveResults() {
+                try {
+                    // Ensure we have valid skills
+                    state.extractedSkills = extractSkillsFromResults(state.results);
+
+                    if (state.extractedSkills.length === 0) {
+                        // Add a fallback skill if nothing was extracted
+                        state.extractedSkills = ["General " + state.careerInterest + " skills"];
+                    }
+
+                    saveResultsButton.disabled = true;
+                    saveResultsButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
+
+                    // Prepare data to send
+                    const skillsJson = JSON.stringify(state.extractedSkills);
+                    const fullResultsText = state.results;
 
                     const response = await fetch('Home.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
                         },
-                        body: `save_results=true&career_interest=${encodeURIComponent(state.careerInterest)}&skills=${encodeURIComponent(JSON.stringify(skills))}`
+                        body: `save_results=true&career_interest=${encodeURIComponent(state.careerInterest)}&skills=${encodeURIComponent(skillsJson)}&full_results=${encodeURIComponent(fullResultsText)}`
                     });
 
-                    // First check if response is OK
                     if (!response.ok) {
-                        // Try to parse error as JSON, fallback to text if that fails
                         let errorData;
                         try {
                             errorData = await response.json();
@@ -885,22 +960,25 @@ Please format your response with clear sections and bullet points where appropri
                         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
                     }
 
-                    // Then parse the JSON
                     const data = await response.json();
 
                     if (data.success) {
                         showSuccessMessage('Your assessment results have been saved. You can now view personalized job recommendations.');
 
-                        const viewJobsBtn = document.createElement('button');
-                        viewJobsBtn.className = 'btn btn-primary mt-4';
-                        viewJobsBtn.textContent = 'View Recommended Jobs';
-                        viewJobsBtn.onclick = () => {
-                            window.location.href = 'Jobsections.php';
-                        };
+                        // Add "View Recommended Jobs" button
+                        const existingViewJobsBtn = document.querySelector('#success-message .view-jobs-btn');
+                        if (!existingViewJobsBtn) {
+                            const viewJobsBtn = document.createElement('button');
+                            viewJobsBtn.className = 'btn btn-primary mt-4 view-jobs-btn';
+                            viewJobsBtn.textContent = 'View Recommended Jobs';
+                            viewJobsBtn.onclick = () => {
+                                window.location.href = 'Jobsections.php';
+                            };
 
-                        const closeButtonContainer = document.querySelector('#success-message .flex.justify-center');
-                        if (closeButtonContainer) {
-                            closeButtonContainer.before(viewJobsBtn);
+                            const closeButtonContainer = document.querySelector('#success-message .flex.justify-center');
+                            if (closeButtonContainer) {
+                                closeButtonContainer.before(viewJobsBtn);
+                            }
                         }
 
                         saveResultsButton.innerHTML = '<i class="fas fa-check mr-1"></i> Saved';
@@ -909,11 +987,7 @@ Please format your response with clear sections and bullet points where appropri
                         throw new Error(data.message || 'Failed to save results');
                     }
                 } catch (error) {
-                    console.error('Error saving results:', error);
-
-                    // Clean up the error message by removing any HTML tags
                     const cleanErrorMessage = error.message.replace(/<[^>]*>/g, '').trim();
-
                     showSuccessMessage('There was an error saving your results: ' + cleanErrorMessage, true);
 
                     saveResultsButton.disabled = false;
@@ -923,9 +997,9 @@ Please format your response with clear sections and bullet points where appropri
             }
 
             function downloadResults() {
-                const filename = `Career_Assessment_${new Date().toISOString().split('T')[0]}.txt`;
-                // Use a simpler text format for download, maybe without HTML formatting
-                const text = `Career Assessment Results for: ${state.careerInterest}\n\n${state.results}`; // Use raw results
+                const filename = `Career_Assessment_${state.careerInterest.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
+                // Use the raw results text for download
+                const text = `Career Assessment Results for: ${state.careerInterest}\n\n${state.results}`;
 
                 const element = document.createElement('a');
                 element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
@@ -993,6 +1067,10 @@ Please format your response with clear sections and bullet points where appropri
                     if (paragraph.trim().startsWith('<') || paragraph.trim() === '') { // Don't wrap existing HTML or empty lines
                         return paragraph;
                     }
+                    // Avoid adding <br> inside list wrappers
+                    if (paragraph.trim().startsWith('<ul') || paragraph.trim().startsWith('<ol')) {
+                        return paragraph;
+                    }
                     return `<p class="my-2">${paragraph.replace(/\n/g, '<br>')}</p>`;
                 }).join('');
 
@@ -1001,8 +1079,9 @@ Please format your response with clear sections and bullet points where appropri
                     return codeBlocks[parseInt(index)];
                 });
 
-                // Basic HTML escaping for safety
+                // Basic HTML escaping for safety within code blocks or potentially missed areas
                 function htmlspecialchars(str) {
+                    if (typeof str !== 'string') return '';
                     const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
                     return str.replace(/[&<>"']/g, m => map[m]);
                 }

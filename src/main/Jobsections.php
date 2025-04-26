@@ -38,17 +38,17 @@ function canPostJobs($role) {
 }
 
 // Function to save job application
-function saveJobApplication($userId, $jobId, $jobTitle, $company, $status = 'Applied')
+function saveJobApplication($userId, $jobId, $jobTitle, $company, $resumePath, $coverLetter, $status = 'Applied')
 {
   global $conn;
 
   // Prepare an insert statement
-  $sql = "INSERT INTO job_applications (user_id, job_id, job_title, company, status, applied_at)
-            VALUES (?, ?, ?, ?, ?, NOW())";
+  $sql = "INSERT INTO job_applications (user_id, job_id, job_title, company, status, resume_path, cover_letter, applied_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
 
   if ($stmt = $conn->prepare($sql)) {
     // Bind variables to the prepared statement as parameters
-    $stmt->bind_param("iisss", $userId, $jobId, $jobTitle, $company, $status);
+    $stmt->bind_param("iisssss", $userId, $jobId, $jobTitle, $company, $status, $resumePath, $coverLetter);
 
     // Execute the statement
     $success = $stmt->execute();
@@ -231,12 +231,26 @@ $sql = "CREATE TABLE IF NOT EXISTS job_applications (
     job_title VARCHAR(255) NOT NULL,
     company VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL,
+    resume_path VARCHAR(255),
+    cover_letter TEXT,
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 )"; // Added ON DELETE CASCADE
 
 if ($conn->query($sql) !== TRUE) {
   die("Error creating job_applications table: " . $conn->error);
+}
+
+// Alter job_applications table if resume_path and cover_letter columns don't exist
+$sql = "SHOW COLUMNS FROM `job_applications` LIKE 'resume_path'";
+$result = $conn->query($sql);
+if ($result && $result->num_rows == 0) {
+  $alterSql = "ALTER TABLE `job_applications`
+               ADD COLUMN `resume_path` VARCHAR(255) NULL,
+               ADD COLUMN `cover_letter` TEXT NULL";
+  if (!$conn->query($alterSql)) {
+    error_log("Error adding columns to job_applications table: " . $conn->error);
+  }
 }
 
 // Create job bookmarks table if it doesn't exist
@@ -286,21 +300,107 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
   header("Content-Type: application/json");
 
   if ($_POST["action"] == "apply_job") {
-    // Get data from POST request
-    $jobId = $_POST["jobId"] ?? null;
-    $jobTitle = $_POST["jobTitle"] ?? '';
-    $company = $_POST["company"] ?? '';
+    header("Content-Type: application/json");
 
-    if (!$jobId || !$jobTitle || !$company) {
-        echo json_encode(["success" => false, "message" => "Missing job details."]);
-        exit;
+    try {
+      // Validate inputs
+      $jobId = isset($_POST["job_id"]) ? (int)$_POST["job_id"] : 0;
+      $jobTitle = isset($_POST["job_title"]) ? trim($_POST["job_title"]) : '';
+      $company = isset($_POST["company"]) ? trim($_POST["company"]) : '';
+
+      if (!$jobId || empty($jobTitle) || empty($company)) {
+        throw new Exception("Missing job details");
+      }
+
+      // File upload handling
+      $resumePath = '';
+      if (isset($_FILES['resume']) && $_FILES['resume']['error'] == UPLOAD_ERR_OK) {
+        $allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        $fileInfo = finfo_open(FILEINFO_MIME_TYPE);
+        $detectedType = finfo_file($fileInfo, $_FILES['resume']['tmp_name']);
+        finfo_close($fileInfo);
+
+        $maxSize = 5 * 1024 * 1024; // 5MB
+
+        // Check file type
+        if (!in_array($detectedType, $allowedTypes)) {
+          throw new Exception('Only PDF and Word documents are allowed');
+        }
+
+        // Check file size
+        if ($_FILES['resume']['size'] > $maxSize) {
+          throw new Exception('File size exceeds 5MB limit');
+        }
+
+        // Create upload directory if it doesn't exist
+        $uploadDir = __DIR__ . '/../../uploads/resumes/';
+        if (!is_dir($uploadDir)) {
+          if (!mkdir($uploadDir, 0755, true)) {
+            throw new Exception('Failed to create upload directory');
+          }
+        }
+
+        // Generate a safe filename
+        $extension = pathinfo($_FILES['resume']['name'], PATHINFO_EXTENSION);
+        $safeName = 'resume_' . $user_id . '_' . time() . '.' . $extension;
+        $resumePath = $uploadDir . $safeName;
+
+        // Move the file
+        if (!move_uploaded_file($_FILES['resume']['tmp_name'], $resumePath)) {
+          throw new Exception('Failed to save resume file');
+        }
+
+        // Store relative path in database
+        $dbResumePath = 'uploads/resumes/' . $safeName;
+      } else {
+        if ($_FILES['resume']['error'] != UPLOAD_ERR_NO_FILE) {
+          // Handle different upload errors
+          $uploadErrors = [
+            UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
+            UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive in the HTML form',
+            UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded',
+            UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder',
+            UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+            UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload'
+          ];
+          $errorMessage = isset($uploadErrors[$_FILES['resume']['error']]) ?
+                          $uploadErrors[$_FILES['resume']['error']] :
+                          'Unknown upload error';
+          throw new Exception($errorMessage);
+        }
+        throw new Exception('Resume file is required');
+      }
+
+      // Get cover letter if provided
+      $coverLetter = isset($_POST['cover_letter']) ? trim($_POST['cover_letter']) : '';
+
+      // Save application
+      $success = saveJobApplication(
+        $user_id,
+        $jobId,
+        $jobTitle,
+        $company,
+        $dbResumePath,
+        $coverLetter
+      );
+
+      if (!$success) {
+        throw new Exception("Database error: " . $conn->error);
+      }
+
+      echo json_encode([
+        'success' => true,
+        'message' => 'Application submitted successfully!'
+      ]);
+
+    } catch (Exception $e) {
+      http_response_code(400);
+      error_log("Application error: " . $e->getMessage());
+      echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+      ]);
     }
-
-    // Save job application
-    $success = saveJobApplication($user_id, $jobId, $jobTitle, $company);
-
-    // Return response
-    echo json_encode(["success" => $success, "message" => $success ? "Application submitted." : "Failed to submit application."]);
     exit;
   } elseif ($_POST["action"] == "save_job") {
     // Get data from POST request
@@ -514,6 +614,14 @@ if ($stmt = $conn->prepare($sql)) {
       .badge-orange {
         @apply bg-orange-100 text-orange-800;
       }
+      .loading {
+        display: inline-flex;
+        align-items: center;
+      }
+      .file-input::file-selector-button {
+        @apply btn btn-outline;
+        margin-right: 1rem;
+      }
     }
   </style>
   <!-- Inter font -->
@@ -550,7 +658,7 @@ if ($stmt = $conn->prepare($sql)) {
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
               stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2z" />
             </svg>
             Jobs
           </a>
@@ -600,11 +708,18 @@ if ($stmt = $conn->prepare($sql)) {
             <i class="fas fa-star text-yellow-500"></i>
             Personalized Job Recommendations
           </h2>
-          <p class="text-sm text-gray-600 mt-1">
-            Based on your assessed skills: <strong class="font-medium"><?php echo htmlspecialchars(implode(', ', $userSkills)); ?></strong>
+          <p class="text-sm text-gray-600 mt-1 mb-2">
+            Based on your assessed skills:
           </p>
+          <div class="flex flex-wrap gap-2">
+            <?php foreach ($userSkills as $skill): ?>
+              <span class="badge badge-blue">
+                <?php echo htmlspecialchars($skill); ?>
+              </span>
+            <?php endforeach; ?>
+          </div>
         </div>
-        <form method="post" action="Jobsections.php" class="mt-2 sm:mt-0">
+        <form method="post" action="Jobsections.php" class="mt-2 sm:mt-0 self-start sm:self-center">
           <button type="submit" name="clear_assessment" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50">
             <i class="fas fa-times text-xs"></i> Clear recommendations
           </button>
@@ -1130,6 +1245,51 @@ if ($stmt = $conn->prepare($sql)) {
       </div>
     </div>
 
+  <!-- Application Form Modal -->
+  <div id="application-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">Apply for <span id="job-title-header"></span></h2>
+        <button id="close-application" class="text-gray-500 hover:text-gray-700">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="application-form" enctype="multipart/form-data">
+        <input type="hidden" id="apply-job-id" name="job_id">
+        <input type="hidden" id="apply-job-title" name="job_title">
+        <input type="hidden" id="apply-company" name="company">
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Resume (PDF/DOCX) <span class="text-red-500">*</span></label>
+            <div class="mt-1 flex items-center">
+              <input type="file" name="resume" id="resume" accept=".pdf,.doc,.docx"
+                     class="input" required>
+            </div>
+          </div>
+
+          <div>
+            <label for="cover-letter" class="block text-sm font-medium text-gray-700 mb-1">Cover Letter</label>
+            <textarea id="cover-letter" name="cover_letter" rows="4"
+                      class="input" placeholder="Explain why you're a good fit..."></textarea>
+          </div>
+
+          <div class="mt-6">
+            <button type="submit" class="btn btn-primary w-full">
+              <span class="submit-text">Submit Application</span>
+              <span class="loading hidden">
+                <i class="fas fa-spinner fa-spin mr-1"></i> Processing...
+              </span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     // State management
     const state = {
@@ -1171,6 +1331,11 @@ if ($stmt = $conn->prepare($sql)) {
     const messageTitle = document.getElementById('message-title');
     const messageText = document.getElementById('message-text');
     const closeMessageButton = document.getElementById('close-message');
+
+    const applicationModal = document.getElementById('application-modal');
+    const applicationForm = document.getElementById('application-form');
+    const closeApplicationButton = document.getElementById('close-application');
+    let currentJob = null;
 
     // --- Utility Functions ---
     function showMessage(title, text, isError = false) {
@@ -1285,6 +1450,79 @@ if ($stmt = $conn->prepare($sql)) {
       messageModal.classList.add('hidden');
     });
 
+    // Application Form Handling
+    function openApplicationForm(jobId, jobTitle, company) {
+      currentJob = { id: jobId, title: jobTitle, company: company };
+      document.getElementById('job-title-header').textContent = jobTitle;
+      document.getElementById('apply-job-id').value = jobId;
+      document.getElementById('apply-job-title').value = jobTitle;
+      document.getElementById('apply-company').value = company;
+      applicationModal.classList.remove('hidden');
+    }
+
+    closeApplicationButton.addEventListener('click', () => {
+      applicationModal.classList.add('hidden');
+      applicationForm.reset(); // Clear form
+    });
+
+    window.addEventListener('click', (e) => {
+      if (e.target === applicationModal) {
+        applicationModal.classList.add('hidden');
+        applicationForm.reset(); // Clear form
+      }
+    });
+
+    applicationForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(applicationForm);
+      const submitBtn = applicationForm.querySelector('button[type="submit"]');
+      const submitText = submitBtn.querySelector('.submit-text');
+      const loading = submitBtn.querySelector('.loading');
+
+      const resumeInput = document.getElementById('resume');
+      if (!resumeInput.files || resumeInput.files.length === 0) {
+        showMessage('Error!', 'Please select a resume file', true);
+        return;
+      }
+
+      submitText.classList.add('hidden');
+      loading.classList.remove('hidden');
+      submitBtn.disabled = true;
+
+      try {
+        formData.append('action', 'apply_job');
+
+        const response = await fetch('Jobsections.php', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          showMessage('Success!', result.message || 'Application submitted successfully!');
+          applicationModal.classList.add('hidden');
+          applicationForm.reset();
+
+          document.querySelectorAll(`.easy-apply-btn[data-id="${currentJob.id}"], .apply-now-btn[data-id="${currentJob.id}"]`).forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = 'Applied';
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+          });
+        } else {
+          throw new Error(result.message || 'Failed to submit application');
+        }
+      } catch (error) {
+        console.error('Application error:', error);
+        showMessage('Error!', error.message || 'An error occurred while submitting your application', true);
+      } finally {
+        submitText.classList.remove('hidden');
+        loading.classList.add('hidden');
+        submitBtn.disabled = false;
+      }
+    });
+
     // Add event listeners to dynamically added buttons (using event delegation)
     jobListingsContainer.addEventListener('click', async (e) => {
         const saveButton = e.target.closest('.save-job-btn');
@@ -1341,43 +1579,12 @@ if ($stmt = $conn->prepare($sql)) {
 
             // Prevent double clicks
             if (applyButton.disabled) return;
-            applyButton.disabled = true;
-            const originalText = applyButton.innerHTML;
-            applyButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
+            openApplicationForm(jobId, jobTitle, company);
 
-            try {
-                const data = new FormData();
-                data.append('action', 'apply_job');
-                data.append('jobId', jobId);
-                data.append('jobTitle', jobTitle);
-                data.append('company', company);
-
-                const response = await fetch('Jobsections.php', { method: 'POST', body: data });
-                const result = await response.json();
-
-                if (result.success) {
-                    showMessage('Success!', result.message || 'Your application has been submitted.');
-                    // Optionally disable button permanently or change text
-                    applyButton.textContent = 'Applied';
-                    applyButton.classList.add('opacity-70', 'cursor-not-allowed');
-                    // Disable both apply buttons for this job card
-                    const card = applyButton.closest('.card');
-                    card.querySelectorAll('.easy-apply-btn, .apply-now-btn').forEach(btn => {
-                        btn.disabled = true;
-                        btn.classList.add('opacity-70', 'cursor-not-allowed');
-                    });
-
-                } else {
-                    throw new Error(result.message || 'Failed to submit application');
-                }
-            } catch (error) {
-                console.error('Error applying for job:', error);
-                showMessage('Error!', error.message || 'Could not submit application.', true);
-                applyButton.disabled = false; // Re-enable on error
-                applyButton.innerHTML = originalText;
-            }
-            // Note: Button remains disabled on success in this logic
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
         }
 
         // NEW: Handle click on the clear filters button within the container
@@ -1612,7 +1819,7 @@ if ($stmt = $conn->prepare($sql)) {
         ${text}
         <button type="button" class="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full text-blue-400 hover:text-blue-500 focus:outline-none">
           <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293-4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
           </svg>
         </button>
       `;
