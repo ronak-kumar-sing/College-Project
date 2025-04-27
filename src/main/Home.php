@@ -20,6 +20,27 @@ $user_id = $_SESSION["id"];
 $fullname = $_SESSION["fullname"];
 $email = $_SESSION["email"];
 
+// --- Ensure career_assessments table exists ---
+// Moved this block outside the AJAX handler to run on every page load
+try {
+    $createTableSql = "CREATE TABLE IF NOT EXISTS career_assessments (
+        id INT(11) AUTO_INCREMENT PRIMARY KEY,
+        user_id INT(11) NOT NULL,
+        career_interest VARCHAR(255) NOT NULL,
+        skills TEXT NOT NULL, /* Storing JSON string of skills array */
+        results TEXT, /* Storing the full AI result text */
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )";
+
+    if ($conn->query($createTableSql) !== TRUE) {
+        error_log('Error checking/creating assessment history table: ' . $conn->error);
+    }
+} catch (Exception $e) {
+    error_log("Database error during table creation check: " . $e->getMessage());
+}
+// --- End Table Creation Check ---
+
 // --- AJAX Handler for Saving Assessment to Session ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_results']) && isset($_POST['career_interest']) && isset($_POST['skills'])) {
     header('Content-Type: application/json'); // Ensure JSON response
@@ -31,7 +52,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_results']) && iss
 
         // Validate the decoded skills
         if (json_last_error() !== JSON_ERROR_NONE || !is_array($skills_array)) {
-             // Log the received data for debugging
             error_log("Invalid skills JSON received. Raw data: " . $_POST['skills']);
             throw new Exception('Invalid skills format received from client.');
         }
@@ -51,23 +71,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_results']) && iss
 
         // Save to database for history
         $career_interest = $_POST['career_interest'];
-        // Store the original JSON string (or re-encode the cleaned array) in the DB
         $skills_to_save_json = json_encode($cleaned_skills);
-
-        // Create career_assessments table if it doesn't exist
-        $sql = "CREATE TABLE IF NOT EXISTS career_assessments (
-            id INT(11) AUTO_INCREMENT PRIMARY KEY,
-            user_id INT(11) NOT NULL,
-            career_interest VARCHAR(255) NOT NULL,
-            skills TEXT NOT NULL, /* Storing JSON string of skills array */
-            results TEXT, /* Storing the full AI result text */
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )";
-
-        if ($conn->query($sql) !== TRUE) {
-            throw new Exception('Error creating assessment history table: ' . $conn->error);
-        }
 
         // Insert into database
         $sql = "INSERT INTO career_assessments (user_id, career_interest, skills, results) VALUES (?, ?, ?, ?)";
@@ -98,7 +102,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_results']) && iss
 
     } catch (Exception $e) {
         http_response_code(400); // Bad request
-        error_log("Assessment save error: " . $e->getMessage()); // Log the error
+        error_log("Assessment save error: " . $e->getMessage());
         echo json_encode([
             'success' => false,
             'message' => $e->getMessage()
@@ -109,30 +113,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_results']) && iss
 // --- End AJAX Handler ---
 
 // --- Ensure 'skills' and 'results' columns exist before fetching history ---
-// Check and add 'skills' column if missing
-$checkSkillsSql = "SHOW COLUMNS FROM `career_assessments` LIKE 'skills'";
-$resultSkills = $conn->query($checkSkillsSql);
-if ($resultSkills && $resultSkills->num_rows == 0) {
-    $alterSkillsSql = "ALTER TABLE `career_assessments` ADD COLUMN `skills` TEXT NOT NULL AFTER `career_interest`";
-    if (!$conn->query($alterSkillsSql)) {
-        error_log("Error adding skills column: " . $conn->error);
+try {
+    // Check and add 'skills' column if missing
+    $checkSkillsSql = "SHOW COLUMNS FROM `career_assessments` LIKE 'skills'";
+    $resultSkills = $conn->query($checkSkillsSql);
+    if ($resultSkills && $resultSkills->num_rows == 0) {
+        $alterSkillsSql = "ALTER TABLE `career_assessments` ADD COLUMN `skills` TEXT NOT NULL AFTER `career_interest`";
+        if (!$conn->query($alterSkillsSql)) {
+            error_log("Error adding skills column: " . $conn->error);
+        }
     }
-}
 
-// Check and add 'results' column if missing (since it's also in CREATE TABLE but not guaranteed)
-$checkResultsSql = "SHOW COLUMNS FROM `career_assessments` LIKE 'results'";
-$resultResults = $conn->query($checkResultsSql);
-if ($resultResults && $resultResults->num_rows == 0) {
-    $alterResultsSql = "ALTER TABLE `career_assessments` ADD COLUMN `results` TEXT NULL AFTER `skills`";
-    if (!$conn->query($alterResultsSql)) {
-        error_log("Error adding results column: " . $conn->error);
+    // Check and add 'results' column if missing
+    $checkResultsSql = "SHOW COLUMNS FROM `career_assessments` LIKE 'results'";
+    $resultResults = $conn->query($checkResultsSql);
+    if ($resultResults && $resultResults->num_rows == 0) {
+        $alterResultsSql = "ALTER TABLE `career_assessments` ADD COLUMN `results` TEXT NULL AFTER `skills`";
+        if (!$conn->query($alterResultsSql)) {
+            error_log("Error adding results column: " . $conn->error);
+        }
     }
+} catch (mysqli_sql_exception $e) {
+    error_log("Error during column check for career_assessments: " . $e->getMessage());
 }
 // --- End column check ---
 
 // Fetch assessment history from database
 $assessmentHistory = [];
-// MODIFIED: Fetch 'results' column as well to potentially show full text later
 $sql = "SELECT id, career_interest, skills, results, created_at FROM career_assessments
         WHERE user_id = ? ORDER BY created_at DESC LIMIT 10";
 
@@ -142,9 +149,8 @@ if ($stmt = $conn->prepare($sql)) {
     $result = $stmt->get_result();
 
     while ($row = $result->fetch_assoc()) {
-        // Decode skills JSON for display
         $skills_decoded = json_decode($row['skills'], true);
-        $row['skills_array'] = is_array($skills_decoded) ? $skills_decoded : []; // Store decoded skills in a new key
+        $row['skills_array'] = is_array($skills_decoded) ? $skills_decoded : [];
         $assessmentHistory[] = $row;
     }
 
@@ -159,9 +165,7 @@ if ($stmt = $conn->prepare($sql)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Career Assessment Questionnaire</title>
-    <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
@@ -206,7 +210,6 @@ if ($stmt = $conn->prepare($sql)) {
 </head>
 
 <body class="bg-gray-50 min-h-screen">
-    <!-- Navigation Header -->
     <header class="bg-white shadow-sm py-4 px-6 mb-8">
         <div class="container mx-auto flex justify-between items-center">
             <a href="../../index.php" class="flex items-center space-x-2">
@@ -250,7 +253,6 @@ if ($stmt = $conn->prepare($sql)) {
             <p class="text-gray-600">Complete this assessment to receive personalized career guidance</p>
         </header>
 
-        <!-- Intro Page -->
         <div id="intro-page" class="card mb-8">
             <div class="p-6">
                 <h2 class="text-xl font-bold mb-4">Career Assessment</h2>
@@ -278,7 +280,6 @@ if ($stmt = $conn->prepare($sql)) {
             </div>
         </div>
 
-        <!-- Assessment History Section -->
         <div class="card mb-8">
             <div class="p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -302,10 +303,7 @@ if ($stmt = $conn->prepare($sql)) {
                                             <?php echo date("F j, Y, g:i a", strtotime($assessment["created_at"])); ?>
                                         </p>
 
-                                        <?php
-                                        // Display skills if available from the decoded array
-                                        if (!empty($assessment['skills_array'])):
-                                        ?>
+                                        <?php if (!empty($assessment['skills_array'])): ?>
                                             <div class="mt-2">
                                                 <div class="flex flex-wrap gap-1 mt-1">
                                                     <?php foreach ($assessment['skills_array'] as $skill): ?>
@@ -328,7 +326,7 @@ if ($stmt = $conn->prepare($sql)) {
                                         <button class="use-assessment-btn text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                                             data-id="<?php echo $assessment["id"]; ?>"
                                             data-interest="<?php echo htmlspecialchars($assessment["career_interest"]); ?>"
-                                            data-skills='<?php echo htmlspecialchars($assessment["skills"]); // Pass the original JSON string ?>'>
+                                            data-skills='<?php echo htmlspecialchars($assessment["skills"]); ?>'>
                                             Use for Jobs
                                         </button>
                                     </div>
@@ -340,7 +338,6 @@ if ($stmt = $conn->prepare($sql)) {
             </div>
         </div>
 
-        <!-- Questionnaire Pages -->
         <div id="questionnaire-container" class="card hidden">
             <div class="p-6">
                 <div class="flex justify-between items-center mb-4">
@@ -349,30 +346,24 @@ if ($stmt = $conn->prepare($sql)) {
                     </div>
                 </div>
 
-                <!-- Progress Bar -->
                 <div class="w-full bg-gray-200 h-2 rounded-full mb-6">
                     <div id="progress-bar" class="bg-primary h-full rounded-full transition-all duration-300" style="width: 33%">
                     </div>
                 </div>
 
-                <!-- AI Explanation -->
                 <div id="ai-explanation-container" class="bg-blue-50 p-4 rounded-lg mb-6 hidden">
                     <h4 class="text-sm font-medium mb-2">Why we're asking these questions:</h4>
                     <p id="ai-explanation" class="text-sm text-gray-600"></p>
                 </div>
 
-                <!-- Questions Container -->
                 <div id="questions-container" class="space-y-6 mb-6">
-                    <!-- Questions will be dynamically inserted here -->
                 </div>
 
-                <!-- Loading Indicator -->
                 <div id="loading-container" class="py-8 text-center hidden">
                     <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
                     <p class="text-gray-600">Generating personalized questions based on your answers...</p>
                 </div>
 
-                <!-- Navigation Buttons -->
                 <div class="flex justify-between">
                     <button id="prev-button" class="btn btn-outline hidden">Previous</button>
                     <div class="flex-1"></div>
@@ -381,7 +372,6 @@ if ($stmt = $conn->prepare($sql)) {
             </div>
         </div>
 
-        <!-- Processing Page -->
         <div id="processing-page" class="card hidden">
             <div class="p-8 text-center">
                 <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-6"></div>
@@ -392,7 +382,6 @@ if ($stmt = $conn->prepare($sql)) {
             </div>
         </div>
 
-        <!-- Results Page -->
         <div id="results-page" class="card hidden">
             <div class="p-6">
                 <div class="flex items-center gap-2 mb-2">
@@ -405,7 +394,6 @@ if ($stmt = $conn->prepare($sql)) {
                 <p class="text-gray-600 mb-6">Personalized guidance based on your responses</p>
 
                 <div id="results-content" class="prose max-w-none mb-6">
-                    <!-- Results will be inserted here -->
                 </div>
 
                 <div class="flex justify-between">
@@ -418,7 +406,6 @@ if ($stmt = $conn->prepare($sql)) {
             </div>
         </div>
 
-        <!-- Success Message -->
         <div id="success-message" class="fixed inset-0 flex items-center justify-center z-50 hidden">
             <div class="absolute inset-0 bg-black opacity-50"></div>
             <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 z-10">
@@ -437,9 +424,8 @@ if ($stmt = $conn->prepare($sql)) {
         </div>
 
         <script>
-            // State management
             const state = {
-                apiKey: 'AIzaSyBasaBU3srwcOqVQoyT7uZmtXPa4NRi6gU', // Replace this with your actual API key
+                apiKey: 'AIzaSyBasaBU3srwcOqVQoyT7uZmtXPa4NRi6gU',
                 careerInterest: '',
                 currentPage: 0,
                 totalPages: 3,
@@ -447,14 +433,13 @@ if ($stmt = $conn->prepare($sql)) {
                 allAnswers: [],
                 currentAnswers: {},
                 aiExplanation: '',
-                results: '', // Holds the full AI response text
-                extractedSkills: [], // Holds the array of extracted skills
+                results: '',
+                extractedSkills: [],
                 isLoading: false,
                 userId: <?php echo $user_id; ?>,
                 userName: "<?php echo htmlspecialchars($fullname); ?>"
             };
 
-            // DOM Elements
             const introPage = document.getElementById('intro-page');
             const questionnaireContainer = document.getElementById('questionnaire-container');
             const processingPage = document.getElementById('processing-page');
@@ -478,16 +463,13 @@ if ($stmt = $conn->prepare($sql)) {
             const downloadResultsButton = document.getElementById('download-results');
             const closeSuccessButton = document.getElementById('close-success');
 
-            // History elements
             const toggleHistoryButton = document.getElementById('toggle-history');
             const historyContainer = document.getElementById('history-container');
             const toggleText = document.getElementById('toggle-text');
             const toggleIcon = document.getElementById('toggle-icon');
 
-            // Initialize button state
             startAssessmentButton.disabled = true;
 
-            // Initial questions (now with options)
             const initialQuestions = [
                 {
                     question: "What subjects or topics do you enjoy learning about the most?",
@@ -503,7 +485,6 @@ if ($stmt = $conn->prepare($sql)) {
                 }
             ];
 
-            // Event Listeners
             careerInterestInput.addEventListener('input', () => {
                 startAssessmentButton.disabled = !careerInterestInput.value.trim();
             });
@@ -523,7 +504,6 @@ if ($stmt = $conn->prepare($sql)) {
                 renderCurrentPage();
             });
 
-            // Toggle history visibility
             toggleHistoryButton.addEventListener('click', () => {
                 historyContainer.classList.toggle('hidden');
                 if (historyContainer.classList.contains('hidden')) {
@@ -537,15 +517,14 @@ if ($stmt = $conn->prepare($sql)) {
                 }
             });
 
-            // Add event listeners to view assessment buttons
             document.querySelectorAll('.view-assessment-btn').forEach(button => {
                 button.addEventListener('click', () => {
                     const interest = button.getAttribute('data-interest');
-                    const resultsText = button.getAttribute('data-results'); // Get full results text
+                    const resultsText = button.getAttribute('data-results');
 
                     state.results = resultsText;
                     state.careerInterest = interest;
-                    state.extractedSkills = []; // Clear skills when viewing old results
+                    state.extractedSkills = [];
 
                     introPage.classList.add('hidden');
                     questionnaireContainer.classList.add('hidden');
@@ -553,15 +532,14 @@ if ($stmt = $conn->prepare($sql)) {
 
                     resultsContent.innerHTML = formatText(state.results);
                     resultsPage.classList.remove('hidden');
-                    saveResultsButton.classList.add('hidden'); // Hide save for viewed history
+                    saveResultsButton.classList.add('hidden');
                 });
             });
 
-            // Add event listeners to "Use for Jobs" buttons
             document.querySelectorAll('.use-assessment-btn').forEach(button => {
                 button.addEventListener('click', async () => {
                     const interest = button.getAttribute('data-interest');
-                    const skillsJsonString = button.getAttribute('data-skills'); // Skills are already JSON string
+                    const skillsJsonString = button.getAttribute('data-skills');
 
                     try {
                         const response = await fetch('Home.php', {
@@ -569,8 +547,6 @@ if ($stmt = $conn->prepare($sql)) {
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded',
                             },
-                            // Send skills as the JSON string from the data attribute
-                            // Also send full_results as empty since we don't have it here easily
                             body: `save_results=true&career_interest=${encodeURIComponent(interest)}&skills=${encodeURIComponent(skillsJsonString)}&full_results=`
                         });
 
@@ -626,8 +602,8 @@ if ($stmt = $conn->prepare($sql)) {
                         const pageQuestions = state.allPages[i] || [];
                         const pageAnswers = state.allAnswers[i] || {};
 
-                        pageQuestions.forEach(qData => { // Iterate through question objects
-                            const answer = pageAnswers[qData.question]; // Use question string as key
+                        pageQuestions.forEach(qData => {
+                            const answer = pageAnswers[qData.question];
                             if (answer && answer.trim()) {
                                 answersContext.push(`Q: ${qData.question}\nA: ${answer}`);
                             }
@@ -693,7 +669,6 @@ if ($stmt = $conn->prepare($sql)) {
                 }
             });
 
-            // Functions
             function renderCurrentPage() {
                 currentPageText.textContent = state.currentPage + 1;
                 progressBar.style.width = `${((state.currentPage + 1) / state.totalPages) * 100}%`;
@@ -821,13 +796,13 @@ Based on this information, please provide:
 Please format your response with clear sections and bullet points where appropriate. Ensure the skills list is clearly identifiable.`;
 
                     const response = await generateResponse(prompt);
-                    state.results = response; // Store the full response text
-                    state.extractedSkills = extractSkillsFromResults(state.results); // Extract skills
+                    state.results = response;
+                    state.extractedSkills = extractSkillsFromResults(state.results);
                     renderResults();
                 } catch (error) {
                     console.error("Error generating career assessment:", error);
                     state.results = "I'm sorry, I encountered an error processing your assessment. Please try again later.";
-                    state.extractedSkills = []; // Ensure skills are empty on error
+                    state.extractedSkills = [];
                     renderResults();
                 }
             }
@@ -835,7 +810,7 @@ Please format your response with clear sections and bullet points where appropri
             function renderResults() {
                 processingPage.classList.add('hidden');
                 resultsPage.classList.remove('hidden');
-                saveResultsButton.classList.remove('hidden'); // Ensure save button is visible for new results
+                saveResultsButton.classList.remove('hidden');
                 resultsContent.innerHTML = formatText(state.results);
             }
 
@@ -847,7 +822,7 @@ Please format your response with clear sections and bullet points where appropri
                 state.currentAnswers = {};
                 state.aiExplanation = '';
                 state.results = '';
-                state.extractedSkills = []; // Reset skills
+                state.extractedSkills = [];
 
                 careerInterestInput.value = '';
                 startAssessmentButton.disabled = true;
@@ -856,47 +831,31 @@ Please format your response with clear sections and bullet points where appropri
                 introPage.classList.remove('hidden');
             }
 
-            // --- Clean Skill Extraction Logic ---
             function extractSkillsFromResults(resultsText) {
                 if (!resultsText) return [];
 
                 const skills = [];
 
-                // Find the skills section in the text
                 const skillsSectionRegex = /(?:Key Skills|Skills to Develop|Skills I should develop|Recommended Skills|Focus on developing|Key Skills to Develop)[:\s]*([\s\S]*?)(?:\n\n|\n##|\n#|$)/i;
                 const match = resultsText.match(skillsSectionRegex);
 
                 if (match && match[1]) {
-                    // Get the skills section content and split by list markers
                     const skillListText = match[1];
                     const potentialSkills = skillListText.split(/\n\s*(?:[*•\-–]|\d+[\.\)])\s*/);
 
                     potentialSkills.forEach(skill => {
-                        // Initial cleaning
                         let cleanedSkill = skill.trim();
 
                         if (cleanedSkill.length < 3) return;
 
-                        // Remove explanations in parentheses
                         cleanedSkill = cleanedSkill.replace(/\([^)]*\)/g, '').trim();
-
-                        // Remove explanations after colon
                         cleanedSkill = cleanedSkill.replace(/:[^,]*(?:,|$)/, '').trim();
-
-                        // Remove trailing punctuation
                         cleanedSkill = cleanedSkill.replace(/[,.;:]$/, '').trim();
-
-                        // Remove "to develop" phrases
                         cleanedSkill = cleanedSkill.replace(/\b(to develop|skill to|should develop)\b/gi, '').trim();
-
-                        // Remove other common non-skill phrases
                         cleanedSkill = cleanedSkill.replace(/\b(proficiency in|knowledge of|ability to|understanding of|learn|master|develop)\b/gi, '').trim();
-
-                        // Remove any remaining list markers and punctuation
                         cleanedSkill = cleanedSkill.replace(/^[-*•]/, '').trim();
                         cleanedSkill = cleanedSkill.replace(/^[-\s]+|[-\s]+$/g, '').trim();
 
-                        // Basic validation
                         if (cleanedSkill &&
                             cleanedSkill.length > 2 &&
                             cleanedSkill.length < 50 &&
@@ -904,14 +863,12 @@ Please format your response with clear sections and bullet points where appropri
                             !/^(key|skill|develop|focus)/i.test(cleanedSkill) &&
                             !/\b(such as|including|for example|e\.g\.|i\.e\.)\b/i.test(cleanedSkill)) {
 
-                            // Only add if not already in the list
                             if (!skills.includes(cleanedSkill)) {
                                 skills.push(cleanedSkill);
                             }
                         }
                     });
                 } else {
-                    // Fallback: extract common skills from the full text
                     const skillMatches = resultsText.match(/\b(?:JavaScript|Python|React|Angular|SQL|HTML|CSS|Node\.js|AWS|Docker|Git|machine learning|data analysis|leadership|communication|problem[\- ]solving|project management|UI\/UX|design|marketing|sales|teamwork|critical thinking|creativity)\b/gi);
 
                     if (skillMatches) {
@@ -922,22 +879,18 @@ Please format your response with clear sections and bullet points where appropri
 
                 return skills;
             }
-            // --- End Skill Extraction Logic ---
 
             async function saveResults() {
                 try {
-                    // Ensure we have valid skills
                     state.extractedSkills = extractSkillsFromResults(state.results);
 
                     if (state.extractedSkills.length === 0) {
-                        // Add a fallback skill if nothing was extracted
                         state.extractedSkills = ["General " + state.careerInterest + " skills"];
                     }
 
                     saveResultsButton.disabled = true;
                     saveResultsButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
 
-                    // Prepare data to send
                     const skillsJson = JSON.stringify(state.extractedSkills);
                     const fullResultsText = state.results;
 
@@ -965,7 +918,6 @@ Please format your response with clear sections and bullet points where appropri
                     if (data.success) {
                         showSuccessMessage('Your assessment results have been saved. You can now view personalized job recommendations.');
 
-                        // Add "View Recommended Jobs" button
                         const existingViewJobsBtn = document.querySelector('#success-message .view-jobs-btn');
                         if (!existingViewJobsBtn) {
                             const viewJobsBtn = document.createElement('button');
@@ -998,7 +950,6 @@ Please format your response with clear sections and bullet points where appropri
 
             function downloadResults() {
                 const filename = `Career_Assessment_${state.careerInterest.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
-                // Use the raw results text for download
                 const text = `Career Assessment Results for: ${state.careerInterest}\n\n${state.results}`;
 
                 const element = document.createElement('a');
@@ -1011,86 +962,63 @@ Please format your response with clear sections and bullet points where appropri
                 document.body.removeChild(element);
             }
 
-            // Helper function to format text with markdown-like syntax
             function formatText(text) {
                 if (!text) return '';
 
                 let formattedText = text;
 
-                // Handle potential code blocks first to avoid formatting inside them
                 const codeBlocks = [];
                 formattedText = formattedText.replace(/```([\s\S]*?)```/g, (match, code) => {
                     codeBlocks.push(`<pre class="bg-gray-100 p-2 rounded text-sm overflow-x-auto"><code>${htmlspecialchars(code.trim())}</code></pre>`);
                     return `%%CODEBLOCK_${codeBlocks.length - 1}%%`;
                 });
 
-                // Replace **bold** with <strong>bold</strong>
                 formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-                // Replace *italic* with <em>italic</em>
                 formattedText = formattedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-                // Replace # Heading with <h3>Heading</h3>
                 formattedText = formattedText.replace(/^# (.*?)$/gm, '<h3 class="text-lg font-bold my-3">$1</h3>');
-
-                // Replace ## Subheading with <h4>Subheading</h4>
                 formattedText = formattedText.replace(/^## (.*?)$/gm, '<h4 class="text-md font-semibold my-2">$1</h4>');
 
-                // Convert bullet lists (handle nested lists better)
                 formattedText = formattedText.replace(/^([ \t]*)[*\-•] (.*?)$/gm, (match, indent, item) => {
-                    const padding = indent.length * 10; // Adjust padding based on indentation
+                    const padding = indent.length * 10;
                     return `<li style="margin-left: ${padding}px;" class="mb-1 list-disc list-inside">${item}</li>`;
                 });
-                // Wrap list items in <ul>
                 formattedText = formattedText.replace(/(<li.*?>.*?<\/li>\s*)+/gs, (match) => {
-                     // Check if it's already inside a list
                     if (match.trim().startsWith('<ul') || match.trim().startsWith('<ol')) return match;
                     return `<ul class="my-3">${match}</ul>`;
                 });
 
-
-                // Convert numbered lists (handle nested lists better)
                 formattedText = formattedText.replace(/^([ \t]*)\d+\. (.*?)$/gm, (match, indent, item) => {
-                    const padding = indent.length * 10; // Adjust padding based on indentation
+                    const padding = indent.length * 10;
                     return `<li style="margin-left: ${padding}px;" class="mb-1 list-decimal list-inside">${item}</li>`;
                 });
-                 // Wrap list items in <ol>
                 formattedText = formattedText.replace(/(<li.*?>.*?<\/li>\s*)+/gs, (match) => {
-                    // Check if it's already inside a list
                     if (match.trim().startsWith('<ul') || match.trim().startsWith('<ol')) return match;
                     return `<ol class="my-3">${match}</ol>`;
                 });
 
-
-                // Replace newlines with <br> within paragraphs, handle paragraphs better
                 formattedText = formattedText.split('\n\n').map(paragraph => {
-                    if (paragraph.trim().startsWith('<') || paragraph.trim() === '') { // Don't wrap existing HTML or empty lines
+                    if (paragraph.trim().startsWith('<') || paragraph.trim() === '') {
                         return paragraph;
                     }
-                    // Avoid adding <br> inside list wrappers
                     if (paragraph.trim().startsWith('<ul') || paragraph.trim().startsWith('<ol')) {
                         return paragraph;
                     }
                     return `<p class="my-2">${paragraph.replace(/\n/g, '<br>')}</p>`;
                 }).join('');
 
-                // Restore code blocks
                 formattedText = formattedText.replace(/%%CODEBLOCK_(\d+)%%/g, (match, index) => {
                     return codeBlocks[parseInt(index)];
                 });
 
-                // Basic HTML escaping for safety within code blocks or potentially missed areas
                 function htmlspecialchars(str) {
                     if (typeof str !== 'string') return '';
                     const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
                     return str.replace(/[&<>"']/g, m => map[m]);
                 }
 
-
                 return formattedText;
             }
 
-            // API Functions
             async function generateQuestionsBasedOnAnswers(careerInterest, previousAnswers, questionCount = 3) {
                 const prompt = `You are a career guidance AI assistant helping a user interested in ${careerInterest}.
 
@@ -1207,14 +1135,13 @@ Do not include any text outside of this JSON object.`;
                                 signal: controller.signal
                             });
 
-                            clearTimeout(timeoutId); // Clear timeout on successful fetch start
+                            clearTimeout(timeoutId);
 
                             if (!response.ok) {
-                                // Try to get error message from response body
                                 let errorData = {};
                                 try {
                                     errorData = await response.json();
-                                } catch (e) { /* Ignore if body isn't JSON */ }
+                                } catch (e) { }
                                 throw new Error(errorData.error?.message || `API returned status ${response.status}`);
                             }
 
@@ -1225,7 +1152,6 @@ Do not include any text outside of this JSON object.`;
                             }
 
                             if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-                                // Check for safety ratings block
                                 if (data.candidates && data.candidates[0]?.finishReason === 'SAFETY') {
                                      throw new Error("Content blocked due to safety concerns.");
                                 }
@@ -1234,34 +1160,31 @@ Do not include any text outside of this JSON object.`;
 
                             return data.candidates[0].content.parts[0].text;
                         } catch (err) {
-                            clearTimeout(timeoutId); // Clear timeout if error occurs during fetch/processing
+                            clearTimeout(timeoutId);
 
                             if (attempt < retries && (err.name === 'AbortError' || err.name === 'TypeError' || err.message.includes('status 5'))) {
                                 console.warn(`API call failed, retrying (${attempt + 1}/${retries})...`, err);
                                 await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
-                                // Re-set timeout for the next attempt
                                 const newTimeoutId = setTimeout(() => controller.abort(), 30000);
-                                timeoutId = newTimeoutId; // Update timeoutId for the next loop/finally block
+                                timeoutId = newTimeoutId;
                                 continue;
                             }
-                            throw err; // Re-throw if not retryable or retries exhausted
+                            throw err;
                         }
                     }
                 } finally {
-                    clearTimeout(timeoutId); // Ensure timeout is always cleared
+                    clearTimeout(timeoutId);
                 }
-                 throw new Error("API call failed after multiple retries."); // Should not be reached if successful
+                 throw new Error("API call failed after multiple retries.");
             }
 
-            // Ensure showSuccessMessage function exists and handles error state
             function showSuccessMessage(message, isError = false) {
                 successMessageText.textContent = message;
                 const iconContainer = successMessage.querySelector('.flex.items-center.justify-center');
                 const titleElement = successMessage.querySelector('h3');
 
-                // Reset icon container classes and content
                 iconContainer.classList.remove('text-green-500', 'text-red-500');
-                iconContainer.innerHTML = ''; // Clear previous icon
+                iconContainer.innerHTML = '';
 
                 if (isError) {
                     iconContainer.classList.add('text-red-500');
