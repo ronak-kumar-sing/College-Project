@@ -1,4 +1,9 @@
 <?php
+// Enable error reporting for debugging (remove or adjust for production)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 // Start session for user authentication
 session_start();
 
@@ -16,21 +21,9 @@ $user_id = $_SESSION["id"];
 $fullname = $_SESSION["fullname"];
 $email = $_SESSION["email"];
 
-// Handle AJAX request to save roadmap
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_roadmap'])) {
-    header('Content-Type: application/json'); // Ensure JSON response
-
-    // Get data from POST
-    $career_goal = isset($_POST['career_goal']) ? $_POST['career_goal'] : '';
-    $roadmap_data = isset($_POST['roadmap_data']) ? $_POST['roadmap_data'] : '';
-
-    if (empty($career_goal) || empty($roadmap_data)) {
-        echo json_encode(['success' => false, 'message' => 'Missing required data']);
-        exit;
-    }
-
-    // Create career_roadmaps table if it doesn't exist
-    $sql = "CREATE TABLE IF NOT EXISTS career_roadmaps (
+// --- Ensure career_roadmaps table exists ---
+try {
+    $createTableSql = "CREATE TABLE IF NOT EXISTS career_roadmaps (
         id INT(11) AUTO_INCREMENT PRIMARY KEY,
         user_id INT(11) NOT NULL,
         career_goal VARCHAR(255) NOT NULL,
@@ -39,28 +32,61 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_roadmap'])) {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )";
 
-    if ($conn->query($sql) !== TRUE) {
-        echo json_encode(['success' => false, 'message' => 'Error creating roadmap history table']);
+    if ($conn->query($createTableSql) !== TRUE) {
+        // Log error instead of echoing JSON during page load
+        error_log("Error creating career_roadmaps table: " . $conn->error);
+        // Optionally, display a user-friendly error message or die
+        // die("Database setup error. Please contact support.");
+    }
+} catch (mysqli_sql_exception $e) {
+    error_log("Error checking/creating career_roadmaps table: " . $e->getMessage());
+    // Optionally, display a user-friendly error message or die
+    // die("Database setup error. Please contact support.");
+}
+// --- End table check ---
+
+// Handle AJAX request to save roadmap
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_roadmap'])) {
+    header('Content-Type: application/json'); // Ensure JSON response
+
+    // Get data from POST
+    $career_goal = isset($_POST['career_goal']) ? trim($_POST['career_goal']) : '';
+    $roadmap_data = isset($_POST['roadmap_data']) ? trim($_POST['roadmap_data']) : '';
+
+    if (empty($career_goal) || empty($roadmap_data)) {
+        echo json_encode(['success' => false, 'message' => 'Missing required data']);
         exit;
     }
 
     // Insert into database
     $sql = "INSERT INTO career_roadmaps (user_id, career_goal, roadmap_data) VALUES (?, ?, ?)";
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("iss", $user_id, $career_goal, $roadmap_data);
-        $success = $stmt->execute();
-        $stmt->close();
-
-        if (!$success) {
-            echo json_encode(['success' => false, 'message' => 'Error saving roadmap to history']);
-            exit;
+    $stmt = null; // Initialize stmt
+    try {
+        $stmt = $conn->prepare($sql);
+        if ($stmt === false) {
+            throw new Exception('Prepare failed: ' . $conn->error);
         }
 
+        if (!$stmt->bind_param("iss", $user_id, $career_goal, $roadmap_data)) {
+             throw new Exception('Binding parameters failed: ' . $stmt->error);
+        }
+
+        if (!$stmt->execute()) {
+            throw new Exception('Execute failed: ' . $stmt->error);
+        }
+
+        $stmt->close();
         echo json_encode(['success' => true, 'message' => 'Roadmap saved successfully']);
         exit;
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Database error']);
-        exit;
+
+    } catch (Exception $e) {
+         if ($stmt) {
+            $stmt->close();
+         }
+         error_log("Roadmap save error: " . $e->getMessage());
+         http_response_code(500); // Internal Server Error for AJAX
+         echo json_encode(['success' => false, 'message' => 'Database error while saving roadmap.']);
+         exit;
     }
 }
 
@@ -69,17 +95,41 @@ $roadmapHistory = [];
 $sql = "SELECT id, career_goal, roadmap_data, created_at FROM career_roadmaps
         WHERE user_id = ? ORDER BY created_at DESC LIMIT 10";
 
-if ($stmt = $conn->prepare($sql)) {
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
+$stmt = null; // Initialize stmt
+try {
+    $stmt = $conn->prepare($sql);
+    if ($stmt === false) {
+        throw new Exception('Prepare failed: ' . $conn->error);
+    }
+
+    if (!$stmt->bind_param("i", $user_id)) {
+        throw new Exception('Binding parameters failed: ' . $stmt->error);
+    }
+
+    if (!$stmt->execute()) {
+        throw new Exception('Execute failed: ' . $stmt->error);
+    }
+
     $result = $stmt->get_result();
+    if ($result === false) {
+         throw new Exception('Getting result set failed: ' . $stmt->error);
+    }
 
     while ($row = $result->fetch_assoc()) {
         $roadmapHistory[] = $row;
     }
 
     $stmt->close();
+
+} catch (Exception $e) {
+    if ($stmt) {
+        $stmt->close();
+    }
+    error_log("Error fetching roadmap history: " . $e->getMessage());
+    // You might want to display an error on the page or just log it
+    // echo "<p>Error loading roadmap history.</p>";
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -114,7 +164,7 @@ if ($stmt = $conn->prepare($sql)) {
   <style type="text/tailwindcss">
     @layer components {
       .btn {
-        @apply px-4 py-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+        @apply px-4 py-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
       }
       .btn-primary {
         @apply bg-primary text-white hover:bg-blue-600 focus:ring-blue-500;
@@ -220,7 +270,7 @@ if ($stmt = $conn->prepare($sql)) {
         </div>
 
         <div class="flex justify-end">
-          <button id="generate-roadmap" class="btn btn-primary">Generate Roadmap</button>
+          <button id="generate-roadmap" class="btn btn-primary" disabled>Generate Roadmap</button>
         </div>
       </div>
     </div>
@@ -391,7 +441,7 @@ if ($stmt = $conn->prepare($sql)) {
       const toggleHistoryText = document.getElementById('toggle-history-text');
       const toggleHistoryIcon = document.getElementById('toggle-history-icon');
 
-      // Add this after defining DOM elements
+      // Initial setup
       generateRoadmapButton.disabled = !careerGoalInput.value.trim();
 
       // Event Listeners
@@ -409,6 +459,12 @@ if ($stmt = $conn->prepare($sql)) {
           alert('Please enter your career goal');
           return;
         }
+
+        // Reset save button state when generating a new roadmap
+        saveRoadmapButton.disabled = false;
+        saveRoadmapButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg> Save';
+        saveRoadmapButton.classList.remove('opacity-70');
+
 
         try {
           showLoadingState();
@@ -428,6 +484,20 @@ if ($stmt = $conn->prepare($sql)) {
       });
 
       newRoadmapButton.addEventListener('click', () => {
+        // Reset input fields
+        careerGoalInput.value = '';
+        currentSkillsInput.value = '';
+        interestsInput.value = '';
+        timeframeInput.value = '';
+        generateRoadmapButton.disabled = true; // Disable button as goal is cleared
+
+        // Reset state related to the current roadmap
+        state.careerGoal = '';
+        state.currentSkills = '';
+        state.interests = '';
+        state.timeframe = '';
+        state.roadmap = [];
+
         hideRoadmapResults();
         showInputForm();
       });
@@ -437,6 +507,8 @@ if ($stmt = $conn->prepare($sql)) {
       });
 
       saveRoadmapButton.addEventListener('click', async () => {
+        if (saveRoadmapButton.disabled) return; // Prevent saving if already saved/saving
+
         try {
           // Disable button to prevent multiple clicks
           saveRoadmapButton.disabled = true;
@@ -456,6 +528,19 @@ if ($stmt = $conn->prepare($sql)) {
             body: formData
           });
 
+          // Check if response is ok and content type is JSON before parsing
+          if (!response.ok) {
+             let errorMsg = `HTTP error! status: ${response.status}`;
+             try {
+                 const errorData = await response.json();
+                 errorMsg = errorData.message || errorMsg;
+             } catch (e) {
+                 // If response is not JSON, use the status text
+                 errorMsg = response.statusText || errorMsg;
+             }
+             throw new Error(errorMsg);
+          }
+
           const result = await response.json();
 
           if (result.success) {
@@ -466,6 +551,13 @@ if ($stmt = $conn->prepare($sql)) {
             // Update button to show saved state
             saveRoadmapButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> Saved';
             saveRoadmapButton.classList.add('opacity-70');
+            // Keep button disabled after successful save
+            saveRoadmapButton.disabled = true;
+
+            // Optionally refresh history section or add the new item dynamically
+            // For simplicity, we'll just note that a refresh might be needed
+            // Or add a small delay then reload the page: setTimeout(() => location.reload(), 1500);
+
           } else {
             throw new Error(result.message || 'Failed to save roadmap');
           }
@@ -473,9 +565,10 @@ if ($stmt = $conn->prepare($sql)) {
           console.error('Error saving roadmap:', error);
           alert('Error saving roadmap: ' + error.message);
 
-          // Reset button state
+          // Reset button state only on error
           saveRoadmapButton.disabled = false;
           saveRoadmapButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg> Save';
+          saveRoadmapButton.classList.remove('opacity-70');
         }
       });
 
@@ -510,6 +603,14 @@ if ($stmt = $conn->prepare($sql)) {
             // Set state values
             state.careerGoal = roadmapGoal;
             state.roadmap = roadmap;
+
+            // Update input fields to reflect loaded roadmap (optional)
+            careerGoalInput.value = state.careerGoal;
+            // Clear other fields as they weren't saved with the history item
+            currentSkillsInput.value = '';
+            interestsInput.value = '';
+            timeframeInput.value = '';
+            generateRoadmapButton.disabled = false; // Enable generate button
 
             // Show the roadmap
             showRoadmapResults();
@@ -580,7 +681,13 @@ if ($stmt = $conn->prepare($sql)) {
       }
 
       function renderRoadmap() {
-        roadmapContainer.innerHTML = '';
+        roadmapContainer.innerHTML = ''; // Clear previous roadmap
+
+        if (!Array.isArray(state.roadmap) || state.roadmap.length === 0) {
+             roadmapContainer.innerHTML = '<p class="text-gray-500 italic">No roadmap steps available.</p>';
+             return;
+        }
+
 
         state.roadmap.forEach((step, index) => {
           const stepElement = document.createElement('div');
@@ -609,52 +716,58 @@ if ($stmt = $conn->prepare($sql)) {
 
           const title = document.createElement('h3');
           title.className = 'text-lg font-medium';
-          title.textContent = step.title;
+          title.textContent = step.title || 'Untitled Step'; // Add fallback
           titleContainer.appendChild(title);
 
-          const timeframe = document.createElement('span');
-          timeframe.className = 'inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800';
-          timeframe.textContent = step.timeframe;
-          titleContainer.appendChild(timeframe);
+          if (step.timeframe) {
+            const timeframe = document.createElement('span');
+            timeframe.className = 'inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800';
+            timeframe.textContent = step.timeframe;
+            titleContainer.appendChild(timeframe);
+          }
 
           content.appendChild(titleContainer);
 
           // Description
-          const description = document.createElement('p');
-          description.className = 'text-gray-700';
-          description.textContent = step.description;
-          content.appendChild(description);
+          if (step.description) {
+            const description = document.createElement('p');
+            description.className = 'text-gray-700';
+            description.textContent = step.description;
+            content.appendChild(description);
+          }
 
           // Resources
-          const resourcesContainer = document.createElement('div');
-          resourcesContainer.className = 'mt-2';
+          if (Array.isArray(step.resources) && step.resources.length > 0) {
+            const resourcesContainer = document.createElement('div');
+            resourcesContainer.className = 'mt-2';
 
-          const resourcesTitle = document.createElement('h4');
-          resourcesTitle.className = 'text-sm font-medium mb-1';
-          resourcesTitle.textContent = 'Recommended Resources:';
-          resourcesContainer.appendChild(resourcesTitle);
+            const resourcesTitle = document.createElement('h4');
+            resourcesTitle.className = 'text-sm font-medium mb-1';
+            resourcesTitle.textContent = 'Recommended Resources:';
+            resourcesContainer.appendChild(resourcesTitle);
 
-          const resourcesList = document.createElement('ul');
-          resourcesList.className = 'space-y-1';
+            const resourcesList = document.createElement('ul');
+            resourcesList.className = 'space-y-1 list-none pl-0'; // Use list-none and pl-0
 
-          step.resources.forEach(resource => {
-            const resourceItem = document.createElement('li');
-            resourceItem.className = 'text-sm flex items-start';
+            step.resources.forEach(resource => {
+              const resourceItem = document.createElement('li');
+              resourceItem.className = 'text-sm flex items-start';
 
-            const bullet = document.createElement('span');
-            bullet.className = 'text-primary mr-1';
-            bullet.innerHTML = '&bull;';
-            resourceItem.appendChild(bullet);
+              const bullet = document.createElement('span');
+              bullet.className = 'text-primary mr-2 flex-shrink-0'; // Added flex-shrink-0
+              bullet.innerHTML = '&bull;';
+              resourceItem.appendChild(bullet);
 
-            const resourceText = document.createElement('span');
-            resourceText.textContent = resource;
-            resourceItem.appendChild(resourceText);
+              const resourceText = document.createElement('span');
+              resourceText.textContent = resource;
+              resourceItem.appendChild(resourceText);
 
-            resourcesList.appendChild(resourceItem);
-          });
+              resourcesList.appendChild(resourceItem);
+            });
 
-          resourcesContainer.appendChild(resourcesList);
-          content.appendChild(resourcesContainer);
+            resourcesContainer.appendChild(resourcesList);
+            content.appendChild(resourcesContainer);
+          }
 
           stepElement.appendChild(content);
           roadmapContainer.appendChild(stepElement);
@@ -662,7 +775,7 @@ if ($stmt = $conn->prepare($sql)) {
       }
 
       function downloadRoadmap() {
-        const filename = `Career_Roadmap_${new Date().toISOString().split('T')[0]}.txt`;
+        const filename = `Career_Roadmap_${state.careerGoal.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
 
         let content = `CAREER ROADMAP: ${state.careerGoal}\n\n`;
 
@@ -678,19 +791,27 @@ if ($stmt = $conn->prepare($sql)) {
           content += `Timeframe: ${state.timeframe}\n`;
         }
 
-        content += '\n';
+        content += '\n---\n\n';
 
-        state.roadmap.forEach((step, index) => {
-          content += `STEP ${index + 1}: ${step.title} (${step.timeframe})\n`;
-          content += `${step.description}\n\n`;
-          content += 'Recommended Resources:\n';
+        if (Array.isArray(state.roadmap)) {
+            state.roadmap.forEach((step, index) => {
+              content += `STEP ${index + 1}: ${step.title || 'Untitled'} (${step.timeframe || 'N/A'})\n`;
+              content += `${step.description || 'No description.'}\n\n`;
 
-          step.resources.forEach(resource => {
-            content += `- ${resource}\n`;
-          });
+              if (Array.isArray(step.resources) && step.resources.length > 0) {
+                  content += 'Recommended Resources:\n';
+                  step.resources.forEach(resource => {
+                    content += `- ${resource}\n`;
+                  });
+              } else {
+                  content += 'Recommended Resources: None listed.\n';
+              }
+              content += '\n---\n\n';
+            });
+        } else {
+             content += 'No roadmap steps available.\n';
+        }
 
-          content += '\n';
-        });
 
         const element = document.createElement('a');
         element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
@@ -704,43 +825,54 @@ if ($stmt = $conn->prepare($sql)) {
 
       async function generateRoadmap() {
         // Create a context summary from the user inputs
-        let contextPrompt = `Career Goal: ${state.careerGoal}\n\n`;
+        let contextPrompt = `Generate a career roadmap based on the following details:\n\n`;
+        contextPrompt += `Career Goal: ${state.careerGoal}\n`;
 
         if (state.currentSkills) {
-          contextPrompt += `Current Skills: ${state.currentSkills}\n\n`;
+          contextPrompt += `Current Skills: ${state.currentSkills}\n`;
         }
 
         if (state.interests) {
-          contextPrompt += `Interests and Preferences: ${state.interests}\n\n`;
+          contextPrompt += `Interests and Preferences: ${state.interests}\n`;
         }
 
         if (state.timeframe) {
-          contextPrompt += `Desired Timeframe: ${state.timeframe}\n\n`;
+          contextPrompt += `Desired Timeframe: ${state.timeframe}\n`;
         }
 
         // Roadmap generation prompt
-        const roadmapPrompt = `Based on the information provided, create a detailed learning roadmap for my career development.
+        const roadmapPrompt = `\nPlease create a detailed learning and development roadmap.
 
-The roadmap should include 4-6 sequential steps, each with:
-1. A clear title for the step
-2. A concise description of what to learn or do
-3. A realistic timeframe (e.g., "1-3 months")
-4. 2-4 specific resources (courses, books, tools, or platforms)
+The roadmap should consist of 4 to 6 sequential steps. For each step, provide:
+1.  A clear "title".
+2.  A concise "description" of the objective or tasks for that step.
+3.  A realistic "timeframe" (e.g., "1-2 weeks", "1 month", "2-3 months").
+4.  An array of 2-4 specific "resources" (like online courses, books, tools, platforms, or types of projects).
 
-Format your response as a JSON array that I can parse, following this structure:
+Format the entire response strictly as a JSON array of objects, like this example:
 [
   {
-    "title": "Step Title",
-    "description": "Description of what to learn/do",
-    "timeframe": "Timeframe to complete",
-    "resources": ["Resource 1", "Resource 2", "Resource 3"]
+    "title": "Foundational Knowledge",
+    "description": "Understand the core concepts of [Field]. Focus on terminology and basic principles.",
+    "timeframe": "2-4 weeks",
+    "resources": ["Specific Course Name on Coursera", "Introductory Book Title", "Official Documentation Website", "YouTube Channel Name"]
+  },
+  {
+    "title": "Skill Development",
+    "description": "Practice core skill X and Y through hands-on exercises.",
+    "timeframe": "1-2 months",
+    "resources": ["Interactive Platform (e.g., LeetCode, Kaggle)", "Project Tutorial Website", "Specific Tool Name", "Online Community Forum"]
   }
 ]
 
-Make the roadmap practical, actionable, and tailored to my specific career goals and current skill level.`;
+Ensure the output is only the JSON array, starting with '[' and ending with ']'. Make the roadmap practical, actionable, and tailored to the provided goal and context.`;
 
         // Combine context with roadmap prompt
-        const fullPrompt = `${contextPrompt}\n\n${roadmapPrompt}`;
+        const fullPrompt = `${contextPrompt}\n${roadmapPrompt}`;
+
+        // Use a timeout for the API call
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
 
         try {
           const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + state.apiKey, {
@@ -754,139 +886,150 @@ Make the roadmap practical, actionable, and tailored to my specific career goals
                   text: fullPrompt
                 }]
               }],
-              generationConfig: {
-                temperature: 0.7,
-                topP: 0.9,
-                topK: 40,
-                maxOutputTokens: 2048,
-              }
-            })
+              // Optional: Adjust generation config if needed
+              // generationConfig: {
+              //   temperature: 0.7,
+              //   topP: 0.9,
+              //   topK: 40,
+              //   maxOutputTokens: 2048, // Adjust if needed
+              //   responseMimeType: "application/json" // Request JSON directly if supported
+              // }
+            }),
+            signal: controller.signal // Add abort signal
           });
+
+          clearTimeout(timeoutId); // Clear timeout if fetch completes
+
+          if (!response.ok) {
+             let errorData = { message: `API request failed with status ${response.status}` };
+             try {
+                 errorData = await response.json();
+             } catch(e) { /* Ignore if response is not JSON */ }
+             throw new Error(errorData.error?.message || errorData.message || `HTTP error ${response.status}`);
+          }
+
 
           const data = await response.json();
 
+          // Check for API-level errors in the response body
           if (data.error) {
-            throw new Error(data.error.message || "API Error");
+            throw new Error(data.error.message || "API returned an error");
           }
 
-          const text = data.candidates[0].content.parts[0].text;
-          console.log("Raw API response:", text);
-          console.log("Roadmap generation response:", text);
+          // Check for safety blocks or missing content
+           if (!data.candidates || data.candidates.length === 0) {
+                if (data.promptFeedback?.blockReason) {
+                    throw new Error(`Content blocked due to: ${data.promptFeedback.blockReason}`);
+                }
+                throw new Error("API returned no candidates.");
+            }
+
+            const candidate = data.candidates[0];
+
+            if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+                 console.warn(`API finish reason: ${candidate.finishReason}`);
+                 if (candidate.finishReason === 'SAFETY') {
+                     throw new Error("Content generation stopped due to safety settings.");
+                 }
+                 // Handle other reasons like MAX_TOKENS if necessary
+            }
+
+
+          if (!candidate.content?.parts?.[0]?.text) {
+            throw new Error("Invalid response format from API: Missing content text.");
+          }
+
+          const text = candidate.content.parts[0].text;
+          console.log("Raw API response text:", text);
 
           // Extract the roadmap from the response
           const roadmap = extractRoadmapFromResponse(text);
 
-          if (roadmap.length === 0) {
-            // Fallback roadmap if extraction fails
-            return [{
-                title: "Research and Exploration",
-                description: "Explore the field and identify key skills needed",
-                timeframe: "2-4 weeks",
-                resources: ["Industry blogs", "Professional forums", "Informational interviews"],
+          if (!Array.isArray(roadmap) || roadmap.length === 0) {
+             console.warn("Failed to extract structured roadmap, using fallback.");
+             // Fallback roadmap if extraction fails or returns empty
+             return [{
+                title: "Research & Planning",
+                description: `Deep dive into the ${state.careerGoal} field. Identify key skills, roles, and companies.`,
+                timeframe: "1-2 weeks",
+                resources: ["Industry blogs/news sites", "LinkedIn profiles of people in the role", "Job descriptions analysis", "Informational interviews"],
               },
               {
-                title: "Fundamental Skills",
-                description: "Build the core skills required for entry-level positions",
-                timeframe: "2-3 months",
-                resources: ["Online courses", "Books", "Practice projects"],
+                title: "Core Skill Acquisition",
+                description: "Focus on learning the fundamental technical and soft skills required.",
+                timeframe: "2-4 months",
+                resources: ["Relevant online courses (Coursera, Udemy, edX)", "Key textbooks or documentation", "Beginner-friendly project tutorials", "Practice platforms (e.g., Codewars, HackerRank if applicable)"],
               },
               {
-                title: "Portfolio Development",
-                description: "Create projects that demonstrate your abilities",
+                title: "Build Initial Portfolio",
+                description: "Apply learned skills by completing 1-2 small projects. Document your process.",
                 timeframe: "1-2 months",
-                resources: ["GitHub", "Personal website", "Project tutorials"],
+                resources: ["GitHub or similar platform", "Personal blog or website", "Find project ideas online", "Contribute to small open-source projects"],
               },
               {
-                title: "Networking and Job Search",
-                description: "Connect with professionals and apply for positions",
+                title: "Network & Refine",
+                description: "Connect with professionals in the field. Get feedback on your projects. Refine your resume and online presence.",
                 timeframe: "Ongoing",
-                resources: ["LinkedIn", "Industry events", "Job boards"],
+                resources: ["LinkedIn", "Meetup groups or virtual events", "Industry conferences (if possible)", "Mentorship platforms"],
               },
+               {
+                title: "Job Application & Interview Prep",
+                description: "Start applying for relevant roles. Practice common interview questions and techniques.",
+                timeframe: "Ongoing",
+                resources: ["Job boards (LinkedIn, Indeed, specialized boards)", "Company career pages", "Interview prep websites (Glassdoor, LeetCode)", "Mock interview practice"],
+              }
             ];
           }
 
-          return roadmap;
+          return roadmap; // Return the successfully extracted roadmap
         } catch (error) {
-          console.error("Error generating roadmap:", error);
-          throw error;
+          clearTimeout(timeoutId); // Ensure timeout is cleared on error
+          console.error("Error in generateRoadmap API call:", error);
+          // Re-throw the error to be caught by the calling function
+          throw new Error(`Failed to generate roadmap: ${error.message}`);
         }
       }
 
       // Helper function to extract roadmap data from the response
       function extractRoadmapFromResponse(text) {
         try {
-          // Look for JSON-like structures in the text
-          const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+          // Trim whitespace and remove potential markdown code fences
+          const cleanedText = text.trim().replace(/^```json\s*|```\s*$/g, '');
 
-          if (jsonMatch) {
-            const jsonStr = jsonMatch[0];
-            const roadmap = JSON.parse(jsonStr);
+          // Attempt to parse directly as JSON
+          const roadmap = JSON.parse(cleanedText);
 
-            // Validate the structure
-            if (
-              Array.isArray(roadmap) &&
-              roadmap.length > 0 &&
-              roadmap[0].title &&
-              roadmap[0].description &&
-              roadmap[0].timeframe &&
-              Array.isArray(roadmap[0].resources)
-            ) {
-              return roadmap;
-            }
+          // Basic validation of the parsed structure
+          if (
+            Array.isArray(roadmap) &&
+            roadmap.length > 0 &&
+            roadmap.every(step =>
+              typeof step === 'object' &&
+              step !== null &&
+              typeof step.title === 'string' &&
+              typeof step.description === 'string' &&
+              typeof step.timeframe === 'string' &&
+              Array.isArray(step.resources) &&
+              step.resources.every(res => typeof res === 'string')
+            )
+          ) {
+            console.log("Successfully parsed JSON roadmap.");
+            return roadmap;
+          } else {
+             console.warn("Parsed JSON does not match expected roadmap structure.");
+             return []; // Return empty if structure is invalid
           }
-
-          // Fallback: Try to parse structured text into roadmap steps
-          const steps = [];
-          const lines = text.split('\n');
-
-          let currentStep = null;
-
-          for (const line of lines) {
-            // Look for patterns like "1. **Title:**" or "Step 1: Title"
-            const stepMatch = line.match(/(?:Step\s*)?(\d+)[:.]\s*(?:\*\*)?([^:*]+)(?:\*\*)?/i);
-
-            if (stepMatch && !line.toLowerCase().includes("resource")) {
-              // Save previous step if exists
-              if (currentStep?.title && currentStep?.description) {
-                steps.push(currentStep);
-              }
-
-              // Start new step
-              currentStep = {
-                title: stepMatch[2].trim(),
-                description: "",
-                timeframe: "Varies",
-                resources: [],
-              };
-            }
-            // Look for timeframe mentions
-            else if (currentStep && line.toLowerCase().includes("month")) {
-              currentStep.timeframe = line.trim();
-            }
-            // Look for resources
-            else if (currentStep && (line.includes("•") || line.includes("-") || line.match(/\d+\./))) {
-              const resource = line.replace(/^[•\-\d.]+\s*/, "").trim();
-              if (resource && !currentStep.resources.includes(resource)) {
-                currentStep.resources = [...(currentStep.resources || []), resource];
-              }
-            }
-            // Add to description
-            else if (currentStep && line.trim() && !currentStep.description) {
-              currentStep.description = line.trim();
-            }
-          }
-
-          // Add the last step if exists
-          if (currentStep?.title && currentStep?.description) {
-            steps.push(currentStep);
-          }
-
-          return steps.length > 0 ? steps : [];
-        } catch (error) {
-          console.error("Error extracting roadmap:", error);
+        } catch (parseError) {
+          console.error("Failed to parse API response as JSON:", parseError);
+          // If JSON parsing fails, return empty array.
+          // The fallback logic previously here was less reliable than the JSON request.
           return [];
         }
       }
+
+      // Initialize on page load
+      // (No specific initialization needed beyond variable declarations and event listeners)
+
     </script>
   </div>
 </body>

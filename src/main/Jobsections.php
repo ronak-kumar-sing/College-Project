@@ -769,8 +769,14 @@ if ($stmt = $conn->prepare($sql)) {
     <!-- My Posted Jobs Section (if user has posted jobs) -->
     <?php if (!empty($userPostedJobs)): ?>
       <div class="mb-8">
-        <h2 class="text-xl font-bold mb-4">My Posted Jobs</h2>
-        <div class="space-y-4">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">My Posted Jobs</h2>
+          <button id="toggle-posted-jobs" class="text-sm text-primary hover:text-blue-700 flex items-center">
+            <span id="toggle-posted-text">Hide</span>
+            <i class="fas fa-chevron-up text-xs ml-1" id="toggle-posted-icon"></i>
+          </button>
+        </div>
+        <div id="posted-jobs-container" class="space-y-4">
           <?php foreach ($userPostedJobs as $job): ?>
             <div class="card p-4 hover:shadow-md transition-all duration-200">
               <div class="flex items-start">
@@ -1596,43 +1602,53 @@ if ($stmt = $conn->prepare($sql)) {
 
     // --- Rendering Functions ---
     function applyFilters() {
+      // Get and normalize search term(s)
+      const searchTerms = state.filters.search ?
+        state.filters.search.toLowerCase().split(/\s+/).filter(term => term.length > 0) :
+        [];
+
       state.filteredJobs = state.jobs.filter(job => {
-        // Search filter (Title, Company, Description, Skills)
-        if (state.filters.search) {
-            const searchTerm = state.filters.search;
-            const skillsMatch = job.skills && Array.isArray(job.skills) ? job.skills.some(skill => skill.toLowerCase().includes(searchTerm)) : false;
-            if (!(
-                job.title.toLowerCase().includes(searchTerm) ||
-                job.company.toLowerCase().includes(searchTerm) ||
-                job.description.toLowerCase().includes(searchTerm) ||
-                skillsMatch
-            )) {
-                return false;
-            }
-        }
+        // Skip search filtering if no search terms
+        if (searchTerms.length === 0) return true;
 
-        // Location filter (Handle 'remote' specifically)
-        if (state.filters.location && state.filters.location !== 'remote' && job.location.toLowerCase() !== state.filters.location.replace('-', ' ')) {
-          return false;
-        }
-        if (state.filters.location === 'remote' && job.location.toLowerCase() !== 'remote') {
-            return false;
-        }
+        // Prepare job data for searching - safely convert all searchable fields to lowercase strings
+        const title = (job.title || '').toLowerCase();
+        const company = (job.company || '').toLowerCase();
+        const description = (job.description || '').toLowerCase();
+        const location = (job.location || '').toLowerCase();
 
+        // Prepare skills array (with error handling)
+        const skills = Array.isArray(job.skills) ?
+          job.skills.map(skill => (skill || '').toLowerCase()) :
+          [];
 
-        // Job type filter
-        if (state.filters.jobType && job.job_type.toLowerCase() !== state.filters.jobType.toLowerCase()) {
-          return false;
-        }
-
-        return true;
+        // Check if ALL search terms match at least one field
+        return searchTerms.every(term => {
+          return title.includes(term) ||
+                 company.includes(term) ||
+                 description.includes(term) ||
+                 location.includes(term) ||
+                 skills.some(skill => skill.includes(term));
+        });
       });
 
-      // Reset pagination
-      state.page = 1;
+      // Handle other filters (unchanged)
+      if (state.filters.location && state.filters.location !== 'remote' &&
+          job.location.toLowerCase() !== state.filters.location.replace('-', ' ')) {
+        return false;
+      }
 
-      // Render filtered jobs
-      renderJobs(); // Render first page
+      if (state.filters.location === 'remote' && job.location.toLowerCase() !== 'remote') {
+        return false;
+      }
+
+      if (state.filters.jobType && job.job_type.toLowerCase() !== state.filters.jobType.toLowerCase()) {
+        return false;
+      }
+
+      // Reset pagination and render
+      state.page = 1;
+      renderJobs();
     }
 
     function renderJobs(append = false) {
@@ -1843,8 +1859,65 @@ if ($stmt = $conn->prepare($sql)) {
     document.addEventListener('DOMContentLoaded', () => {
         renderJobs(); // Render initial page load
         updateFilterTags(); // Render initial filter tags if any filters are pre-selected
+
+        // Add listeners for history toggles
+        const toggleApplicationHistoryButton = document.getElementById('toggle-application-history');
+        if (toggleApplicationHistoryButton) {
+            toggleApplicationHistoryButton.addEventListener('click', handleToggleApplicationHistory);
+        }
+
+        const toggleBookmarkHistoryButton = document.getElementById('toggle-bookmark-history');
+        if (toggleBookmarkHistoryButton) {
+            toggleBookmarkHistoryButton.addEventListener('click', handleToggleBookmarkHistory);
+        }
+
+        // Add listener for My Posted Jobs toggle
+        const togglePostedJobsButton = document.getElementById('toggle-posted-jobs');
+        if (togglePostedJobsButton) {
+            togglePostedJobsButton.addEventListener('click', handleTogglePostedJobs);
+        }
     });
 
+    // --- Separate Handler Functions ---
+    function handleToggleApplicationHistory() {
+        const applicationHistoryContainer = document.getElementById('application-history-container');
+        const toggleAppText = document.getElementById('toggle-app-text');
+        const toggleAppIcon = document.getElementById('toggle-app-icon');
+        if (!applicationHistoryContainer || !toggleAppText || !toggleAppIcon) return;
+
+        applicationHistoryContainer.classList.toggle('hidden');
+        const isHidden = applicationHistoryContainer.classList.contains('hidden');
+        toggleAppText.textContent = isHidden ? 'Show' : 'Hide';
+        toggleAppIcon.classList.toggle('fa-chevron-down', isHidden);
+        toggleAppIcon.classList.toggle('fa-chevron-up', !isHidden);
+    }
+
+    function handleToggleBookmarkHistory() {
+        const bookmarkHistoryContainer = document.getElementById('bookmark-history-container');
+        const toggleBookmarkText = document.getElementById('toggle-bookmark-text');
+        const toggleBookmarkIcon = document.getElementById('toggle-bookmark-icon');
+        if (!bookmarkHistoryContainer || !toggleBookmarkText || !toggleBookmarkIcon) return;
+
+        bookmarkHistoryContainer.classList.toggle('hidden');
+        const isHidden = bookmarkHistoryContainer.classList.contains('hidden');
+        toggleBookmarkText.textContent = isHidden ? 'Show' : 'Hide';
+        toggleBookmarkIcon.classList.toggle('fa-chevron-down', isHidden);
+        toggleBookmarkIcon.classList.toggle('fa-chevron-up', !isHidden);
+    }
+
+    // New handler for My Posted Jobs toggle
+    function handleTogglePostedJobs() {
+        const postedJobsContainer = document.getElementById('posted-jobs-container');
+        const togglePostedText = document.getElementById('toggle-posted-text');
+        const togglePostedIcon = document.getElementById('toggle-posted-icon');
+        if (!postedJobsContainer || !togglePostedText || !togglePostedIcon) return;
+
+        postedJobsContainer.classList.toggle('hidden');
+        const isHidden = postedJobsContainer.classList.contains('hidden');
+        togglePostedText.textContent = isHidden ? 'Show' : 'Hide';
+        togglePostedIcon.classList.toggle('fa-chevron-down', isHidden);
+        togglePostedIcon.classList.toggle('fa-chevron-up', !isHidden);
+    }
 
     // Close modals when clicking outside
     window.addEventListener('click', (e) => {
@@ -1857,34 +1930,6 @@ if ($stmt = $conn->prepare($sql)) {
       if (e.target === messageModal) {
         messageModal.classList.add('hidden');
       }
-    });
-
-    // Toggle Application History
-    const toggleApplicationHistoryButton = document.getElementById('toggle-application-history');
-    const applicationHistoryContainer = document.getElementById('application-history-container');
-    const toggleAppText = document.getElementById('toggle-app-text');
-    const toggleAppIcon = document.getElementById('toggle-app-icon');
-
-    toggleApplicationHistoryButton.addEventListener('click', () => {
-        applicationHistoryContainer.classList.toggle('hidden');
-        const isHidden = applicationHistoryContainer.classList.contains('hidden');
-        toggleAppText.textContent = isHidden ? 'Show' : 'Hide';
-        toggleAppIcon.classList.toggle('fa-chevron-down', isHidden);
-        toggleAppIcon.classList.toggle('fa-chevron-up', !isHidden);
-    });
-
-    // Toggle Bookmark History
-    const toggleBookmarkHistoryButton = document.getElementById('toggle-bookmark-history');
-    const bookmarkHistoryContainer = document.getElementById('bookmark-history-container');
-    const toggleBookmarkText = document.getElementById('toggle-bookmark-text');
-    const toggleBookmarkIcon = document.getElementById('toggle-bookmark-icon');
-
-    toggleBookmarkHistoryButton.addEventListener('click', () => {
-        bookmarkHistoryContainer.classList.toggle('hidden');
-        const isHidden = bookmarkHistoryContainer.classList.contains('hidden');
-        toggleBookmarkText.textContent = isHidden ? 'Show' : 'Hide';
-        toggleBookmarkIcon.classList.toggle('fa-chevron-down', isHidden);
-        toggleBookmarkIcon.classList.toggle('fa-chevron-up', !isHidden);
     });
   </script>
 </body>
