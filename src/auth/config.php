@@ -1,9 +1,10 @@
 <?php
 // Database configuration
-$servername = "db.fr-pari1.bengt.wasmernet.com";
-$username = "ea67a203708a8000f2ce0b622779";
-$password = "068aea67-a203-72b0-8000-eb8fc681a2d9";
-$dbname = "CareerCompass";
+$host = getenv('DB_HOST') ?: 'localhost';
+$db = getenv('DB_NAME') ?: 'college_project';
+$user = getenv('DB_USER') ?: 'root';
+$pass = getenv('DB_PASSWORD') ?: '';
+
 
 // Create connection
 $conn = new mysqli($servername, $username, $password);
