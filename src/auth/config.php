@@ -1,9 +1,9 @@
 <?php
 // Database configuration
-$host = getenv('DB_HOST') ?: 'localhost';
-$db = getenv('DB_NAME') ?: 'college_project';
-$user = getenv('DB_USER') ?: 'root';
-$pass = getenv('DB_PASSWORD') ?: '';
+$host = 'mysql-3c0f0652-ronakkumar20062006-7cd8.j.aivencloud.com';
+$db = 'defaultdb';
+$user = 'avnadmin';
+$pass = 'AVNS_H7SLcixl8Dg6JEYqoOY';
 
 
 // Create connection
