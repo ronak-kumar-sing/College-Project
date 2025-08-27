@@ -1,9 +1,9 @@
 <?php
 // Database configuration
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "careercompass";
+$servername = "db.fr-pari1.bengt.wasmernet.com";
+$username = "ea67a203708a8000f2ce0b622779";
+$password = "068aea67-a203-72b0-8000-eb8fc681a2d9";
+$dbname = "CareerCompass";
 
 // Create connection
 $conn = new mysqli($servername, $username, $password);
@@ -34,4 +34,3 @@ $sql = "CREATE TABLE IF NOT EXISTS users (
 if ($conn->query($sql) !== TRUE) {
     die("Error creating table: " . $conn->error);
 }
-?>
